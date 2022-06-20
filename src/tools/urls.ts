@@ -1,7 +1,8 @@
 
 const urls = {
     checkDates: `/get_date_bounds`,
-    searchScenes: `/search_scenes`
+    searchScenes: `/search_scenes`,
+    downloadScene: `/download_scene`
 }
 
 const wrapUrl = (url: string) => {

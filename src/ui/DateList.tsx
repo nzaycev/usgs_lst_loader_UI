@@ -30,7 +30,7 @@ export const DateList = ({ navigation }: { navigation: INavigation }) => {
                 <ListItem
                   key={entityId}
                   onClick={() => {
-                    navigation.go("download", { displayId, entityId });
+                    navigation.go("download", { displayId, entityId, spatial });
                   }}
                 >
                   {temporalCoverage.startDate.split(" ")[0]}

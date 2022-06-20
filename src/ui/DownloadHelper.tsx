@@ -1,5 +1,7 @@
+import axios from "axios";
 import React, { useEffect, useState } from "react";
 import { io } from "socket.io-client";
+import { getUrl } from "../tools/urls";
 import { ElectonAPI } from "../tools/ElectronApi";
 import { INavigation } from "./Router";
 import "./SidePanel.m.css";
@@ -84,7 +86,6 @@ const stopDownloading = (
     callback: (oldState: loadingStateProps) => loadingStateProps
   ) => void
 ) => {
-  socket.disconnect();
   setLoadingState((loadingState) => ({
     ...loadingState,
     downloading: null,
@@ -126,11 +127,14 @@ const startDownloading = ({
       };
     });
   });
-  fetch(
-    `http://127.0.0.1:5000/download_scene?entityId=${props.entityId}&displayId=${props.displayId}`
-  )
-    .then((x) => x.json())
-    .then((x) => {
+  // fetch(
+  //   `http://127.0.0.1:5000/download_scene?entityId=${props.entityId}&displayId=${props.displayId}`
+  // )
+  axios.post(getUrl('downloadScene'), {
+    ...props
+  })
+    // .then((x) => x.json())
+    .then((x: any) => {
       console.log(x);
     });
 };

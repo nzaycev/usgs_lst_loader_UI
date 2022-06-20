@@ -14,7 +14,6 @@ import { DateList } from "./DateList";
 import { DownloadHelper } from "./DownloadHelper";
 
 export const MainWindow = () => {
-  const MyContext = React.createContext({});
   return (
     <div className="main-window">
       <SystemHelper />
@@ -34,11 +33,6 @@ export const MainWindow = () => {
           </Router>
         )}
       </ModalWrapper>
-
-      {/* <SidePanel loadSectors={setSectors} searchCount={sectors.length} startSearching={startSearching} found={loadingState.found}/>
-        <MapView sectors={sectors} startDownloading={startDownloading} loading={!!loadingState.downloading}/>
-        {loadingState.searching && <LoadingPlaceholder  title="Поиск сцен. Обычно это занимает не более 5 секунд"/> }
-       */}
     </div>
   );
 };

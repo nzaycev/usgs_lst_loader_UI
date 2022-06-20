@@ -12,17 +12,13 @@ if (require("electron-squirrel-startup")) {
   app.quit();
 }
 
-// const {PythonShell} = require('python-shell')
-// console.log('ph', PythonShell)
 const { spawn } = require("child_process");
 const ENV_PATH =
   "C:\\Program Files\\USGS_loader\\server\\env\\Scripts\\python.exe";
-const BAT_PATH =
-    "C:\\Program Files\\USGS_loader\\server\\run_server.bat";
 const SERVER_PATH =
   "C:\\Program Files\\USGS_loader\\server\\server.py";
-// const pyProg = spawn(BAT_PATH);
-const pyProg = spawn(ENV_PATH, [SERVER_PATH]);
+
+let pyProg: any
 const createWindow = (): void => {
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     callback({
@@ -62,6 +58,7 @@ const createWindow = (): void => {
     ], { windowsVerbatimArguments: true });
     // spawn("explorer", [`"C:/Program Files/USGS_loader/server/${path}"`]);
   });
+  pyProg = spawn(ENV_PATH, [SERVER_PATH]);
 };
 
 // This method will be called when Electron has finished
@@ -72,11 +69,10 @@ app.on("ready", createWindow);
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
+/** window initialization */
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit();
-    pyProg.kill()
-  }
+  app.quit();
+  process.kill(pyProg.pid)
 });
 
 app.on("activate", () => {
