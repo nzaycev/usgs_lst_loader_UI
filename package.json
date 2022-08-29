@@ -7,16 +7,36 @@
   "scripts": {
     "start": "electron-forge start",
     "package": "electron-forge package",
-    "make": "electron-forge make",
+    "build": "electron-builder build --pd out/usgs-lst-loader-win32-x64",
+    "make-squirell": "electron-forge make --targets @electron-forge/maker-squirrel",
+    "make-wix": "electron-forge make --targets @electron-forge/maker-wix",
+    "make-nsis": "npm:package && npm:build",
     "publish": "electron-forge publish",
     "lint": "eslint --ext .ts,.tsx ."
+  },
+  "build": {
+    "appId": "test",
+    "win": {
+      "target": "nsis"
+    },
+    "asar": false,
+    "nsis": {
+      "include": "installer.nsh",
+      "allowToChangeInstallationDirectory": false,
+      "oneClick": true,
+      "packElevateHelper": false,
+      "uninstallerIcon": "icon.ico",
+      "installerIcon": "icon.ico"
+    }
   },
   "keywords": [],
   "author": "shkid",
   "license": "MIT",
   "config": {
     "forge": {
-      "packagerConfig": {},
+      "packagerConfig": {
+        "asar": true
+      },
       "makers": [
         {
           "name": "@electron-forge/maker-squirrel",
@@ -25,18 +45,11 @@
           }
         },
         {
-          "name": "@electron-forge/maker-zip",
-          "platforms": [
-            "darwin"
-          ]
-        },
-        {
-          "name": "@electron-forge/maker-deb",
-          "config": {}
-        },
-        {
-          "name": "@electron-forge/maker-rpm",
-          "config": {}
+          "name": "@electron-forge/maker-wix",
+          "config": {
+            "language": 1033,
+            "manufacturer": "My Awesome Company'"
+          }
         }
       ],
       "plugins": [
@@ -54,7 +67,7 @@
                   "name": "main_window",
                   "preload": {
                     "js": "./preload.js"
-                  } 
+                  }
                 }
               ]
             }
@@ -68,6 +81,7 @@
     "@electron-forge/maker-deb": "^6.0.0-beta.63",
     "@electron-forge/maker-rpm": "^6.0.0-beta.63",
     "@electron-forge/maker-squirrel": "^6.0.0-beta.63",
+    "@electron-forge/maker-wix": "^6.0.0-beta.63",
     "@electron-forge/maker-zip": "^6.0.0-beta.63",
     "@electron-forge/plugin-webpack": "^6.0.0-beta.63",
     "@types/lodash.debounce": "^4.0.7",
@@ -83,7 +97,7 @@
     "@vercel/webpack-asset-relocator-loader": "^1.7.0",
     "css-loader": "^6.7.1",
     "electron": "17.1.2",
-    "electron-builder": "^23.0.3",
+    "electron-builder": "^23.3.3",
     "electron-packager": "^15.5.1",
     "eslint": "^8.11.0",
     "eslint-plugin-import": "^2.25.4",
@@ -99,6 +113,7 @@
     "@fortawesome/free-solid-svg-icons": "^6.1.1",
     "@fortawesome/react-fontawesome": "^0.1.18",
     "@turf/turf": "^6.5.0",
+    "7zip-bin": "^5.2.0",
     "axios": "^0.27.2",
     "electron-squirrel-startup": "^1.0.0",
     "fs": "^0.0.1-security",
