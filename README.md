@@ -12,9 +12,5 @@ to run this app use
 to build .exe file for Windows use
 
 ```
-> npm run package
-
-    ...
-
-> npm run make
+> npm run make-nsis
 ```

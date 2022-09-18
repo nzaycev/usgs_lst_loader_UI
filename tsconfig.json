@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "experimentalDecorators": true,
     "allowJs": true,
     "module": "commonjs",
     "skipLibCheck": true,
@@ -7,10 +8,12 @@
     "noImplicitAny": true,
     "sourceMap": true,
     "baseUrl": ".",
+    "target": "ES2019",
     "outDir": "dist",
     "jsx": "react",
     "moduleResolution": "node",
     "resolveJsonModule": true,
+    "lib": ["DOM", "ES2019"],
     "paths": {
       "*": ["node_modules/*"]
     }

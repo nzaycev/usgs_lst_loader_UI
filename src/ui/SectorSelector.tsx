@@ -1,9 +1,9 @@
-import axios from "axios";
 import React from "react";
-import { useLoader } from "../tools/request";
-import { getUrl } from "../tools/urls";
-import { MapView } from "./map";
-import { INavigation } from "./Router";
+import { useSearchScenesQuery } from "../actions/searchApi";
+import ReactMapboxGl, { Layer, Source, GeolocateControl } from "react-map-gl";
+import "mapbox-gl/dist/mapbox-gl.css";
+import { Feature, FeatureCollection, Geometry, GeometryCollection } from "@turf/turf";
+import { useTypedLocation } from "./mainWindow";
 
 const dateFormat = (date: Date) => `
     ${date.getFullYear()}-${(date.getMonth() + 1)
@@ -14,41 +14,61 @@ const dateFormat = (date: Date) => `
 const appendDate = (date: Date, days: number) =>
   new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
 
-const loader = (startDate: Date, endDate: Date) =>
-  axios.post(getUrl("searchScenes"), {
+export const SectorSelector = () => {
+  const {state: {date: startDate}} = useTypedLocation<'/map'>()
+  const [mapState, setMapState] = React.useState({
+    longitude: -100,
+    latitude: 40,
+    zoom: 3.5
+  });
+  
+  const endDate = appendDate(startDate, 1);
+
+  const {isLoading, data} = useSearchScenesQuery({
     startDate: dateFormat(startDate),
     endDate: dateFormat(endDate),
-  });
+  })
+  
 
-export const SectorSelector = ({ navigation }: { navigation: INavigation }) => {
-  const startDate = navigation.getData();
-  const endDate = appendDate(startDate, 1);
-  console.log({
-    startDate,
-    endDate,
-    url: getUrl("searchScenes", dateFormat(startDate), dateFormat(endDate)),
-  });
-  const { data, isLoading } = useLoader(
-    () => loader(startDate, endDate),
-    (x) => x.data
-  );
-
-  const sectors = data
-    ? data.results.map((xx: any, index: number) => ({
-        ...xx.spatialBounds,
-        properties: { ...xx, id: index },
+  const sectors: Feature<GeoJSON.Geometry, any>[] = data
+    ? data.results.map((xx, index: number) => ({
+        type: 'Feature',
+        geometry: {
+          ...xx.spatialBounds
+        },
+        properties: { ...xx, id: index }
       }))
-    : [];
+    : []
+
   return (
-    <>
-      <MapView
-        sectors={sectors}
-        startDownloading={(properties) => {
-          navigation.go("download", properties);
-          // startDownloading({ setLoadingState, ...properties });
-        }}
-        loading={isLoading}
-      />
-    </>
+    <ReactMapboxGl
+      {...mapState}
+      mapboxAccessToken={window.mapboxToken}
+      onMove={evt => setMapState(evt.viewState)}
+      mapStyle="mapbox://styles/mapbox/streets-v11"
+      style={{
+        flex: 1,
+      }}
+    >
+        <Source id="my-data" type="geojson" data={{
+            type: 'FeatureCollection',
+            features: sectors
+        }}>
+            <Layer 
+                id="my-data-layer"
+                type="fill"
+                paint={{
+                    "fill-color": "#d9c85d",
+                    "fill-opacity": [
+                        "case",
+                        ["boolean", ["feature-state", "hover"], false],
+                        1,
+                        0.5,
+                    ],
+                }}
+                source={'my-data'}
+            />
+        </Source>
+    </ReactMapboxGl>
   );
 };

@@ -2,7 +2,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import React from "react";
 
 import {faRefresh, faFolderOpen, faTimes} from "@fortawesome/free-solid-svg-icons"
-import { ElectonAPI } from "../tools/ElectronApi";
+// import { ElectonAPI } from "../tools/ElectronApi";
 
 // const { ipcRenderer } = window.require('electron')
 
@@ -20,7 +20,7 @@ export const SystemHelper = () => {
         <span title="Reload page" onClick={() => location.reload()}>
             <FontAwesomeIcon icon={faRefresh}/>
         </span>
-        <span title="Open out folder" onClick={() => ElectonAPI.openExplorer('')}>
+        <span title="Open out folder" onClick={() => window.ElectronAPI.invoke.openExplorer('')}>
             <FontAwesomeIcon icon={faFolderOpen}/>
         </span>
 

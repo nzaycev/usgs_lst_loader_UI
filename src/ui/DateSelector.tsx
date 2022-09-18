@@ -1,33 +1,14 @@
-import React, { useEffect, useState } from "react";
-import { INavigation } from "./Router";
+import React from "react";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
-import axios from "axios";
-import { IModalControl } from "./Modal";
-import { getUrl } from "../tools/urls";
+import { useAppSelector } from "../entry-points/app";
+import { selectMain } from "../actions/main-actions";
+import { useTypedNavigate } from "./mainWindow";
 
-export const DateSelector = ({
-  navigation,
-  modalControl,
-}: {
-  navigation: INavigation;
-  modalControl: IModalControl;
-}) => {
-  const [maxDate, setMaxDate] = useState<Date>(null);
-  useEffect(() => {
-    axios
-      .get<string>(getUrl("checkDates"))
-      .then(({ data: date }) => {
-        setMaxDate(new Date(date));
-      })
-      .catch((e) => {
-        modalControl.showModal({
-          title: "Error",
-          body: JSON.stringify(e),
-          footer: null,
-        });
-      });
-  }, []);
+export const DateSelector = () => {
+  const {lastAvailableDate} = useAppSelector(selectMain)
+  const navigate = useTypedNavigate()
+
   return (
     <div
       style={{
@@ -38,18 +19,18 @@ export const DateSelector = ({
         flexDirection: 'column'
       }}
     >
-      {!maxDate && <>Loading...</>}
+      {!lastAvailableDate && <>Loading...</>}
       <br/>
       <Calendar
-        tileDisabled={() => !maxDate}
+        tileDisabled={() => !lastAvailableDate}
         onChange={(date: any) => {
-            navigation.go('map', new Date(date))
+            navigate('/map', {state: {date: new Date(date)}})
         }}
-        maxDate={maxDate}
+        maxDate={lastAvailableDate}
         minDate={new Date("2013-03-23")}
       />
       <br/>
-      <button onClick={navigation.home}>Назад</button>
+      <button onClick={() => navigate('/')}>Назад</button>
     </div>
   );
 };

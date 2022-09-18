@@ -2,9 +2,6 @@ import axios from "axios";
 import React, { useEffect, useState } from "react";
 import { io } from "socket.io-client";
 import { getUrl } from "../tools/urls";
-import { ElectonAPI } from "../tools/ElectronApi";
-import { INavigation } from "./Router";
-import "./SidePanel.m.css";
 
 const ENDPOINT = "http://127.0.0.1:5000";
 const socket = io(ENDPOINT);
@@ -118,7 +115,7 @@ const startDownloading = ({
     console.log("on_socket", data);
     setLoadingState((loadingState) => {
       if (data.step === DOWNLOAD_STEPS.READY) {
-        ElectonAPI.openExplorer(data.fileName)
+        window.ElectronAPI.invoke.openExplorer(data.fileName)
         stopDownloading(null, setLoadingState);
       }
       return {
@@ -139,15 +136,15 @@ const startDownloading = ({
     });
 };
 
-export const DownloadHelper = ({ navigation }: { navigation: INavigation }) => {
+export const DownloadHelper = () => {
   const [loadingState, setLoadingState] = useState<loadingStateProps>({
     found: false,
     searching: false,
     downloading: null,
   });
-  const props = navigation.getData();
+  // const props = navigation.getData();
   useEffect(() => {
-    startDownloading({ setLoadingState, ...props });
+    // startDownloading({ setLoadingState, ...props });
   }, []);
   return (
     <div>

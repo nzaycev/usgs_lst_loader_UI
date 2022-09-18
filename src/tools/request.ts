@@ -1,6 +1,5 @@
 import axios from "axios";
 import { useEffect, useState } from "react";
-import { INavigation } from "../ui/Router";
 
 export const useLoader = <T>(
   loader: () => Promise<T>,

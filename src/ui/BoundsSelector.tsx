@@ -1,11 +1,10 @@
-import React, { createRef, Ref, useEffect, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import { MapContainer } from "./mapbox/mapContainer";
-import { INavigation } from "./Router";
 import { bboxPolygon } from "@turf/turf";
-import debounce from "lodash.debounce";
-import { Map } from "./map";
-import { Feature, Layer } from "react-mapbox-gl";
+// import { Map } from "./map";
+// import { Feature, Layer } from "react-mapbox-gl";
 import styled from "styled-components";
+import { useTypedNavigate } from "./mainWindow";
 
 type LngLat = [number, number];
 
@@ -26,22 +25,22 @@ const polygonData: any = (
       : [],
 });
 
-export const BoundsSelector = ({ navigation }: { navigation: INavigation }) => {
-  const [selectionCoordinates, setSelectionCoordinates] = useState<{
-    start: LngLat;
-    end: LngLat;
-  }>(null);
+export interface ISelectionCoordinates {
+  start: LngLat;
+  end: LngLat;
+}
+
+export const BoundsSelector = () => {
+  const [selectionCoordinates, setSelectionCoordinates] = useState<ISelectionCoordinates>(null);
   const [readySelection, setReadySelection] = useState(false);
   const mapRef = useRef(null);
+  const navigate = useTypedNavigate()
 
   const geoJsonData = polygonData(
     selectionCoordinates?.start,
     selectionCoordinates?.end
   );
 
-  // const updateEnd = (end: )
-
-  console.log("aaaa", mapRef.current);
 
   return (
     <div className="bounds-selector">
@@ -97,7 +96,7 @@ export const BoundsSelector = ({ navigation }: { navigation: INavigation }) => {
             </Button>
             <Button
               onClick={() => {
-                navigation.go("date_list", selectionCoordinates);
+                navigate("/date_list", {state: selectionCoordinates});
               }}
             >
               Далее
