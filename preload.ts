@@ -14,10 +14,18 @@ const api: Api = {
       async checkLastDate() {
         return ipcRenderer.invoke<Api>('checkLastDate')
       },
+      async download(args) {
+        return ipcRenderer.invoke<Api>('download', args)
+      },
     },
     on: {
+      stateChange(listener) {
+        ipcRenderer.on<Api>('stateChange', listener);
+      },
     },
   };
   
   contextBridge.exposeInMainWorld('ElectronAPI', api);
-  contextBridge.exposeInMainWorld('mapboxToken', process.env.mb_access_token);
+  contextBridge.exposeInMainWorld('mapboxToken', process.env.mapboxToken);
+  contextBridge.exposeInMainWorld('usgs_username', process.env.usgs_username);
+  contextBridge.exposeInMainWorld('usgs_password', process.env.usgs_password);

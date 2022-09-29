@@ -1,12 +1,14 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import React from "react";
 
-import {faRefresh, faFolderOpen, faTimes} from "@fortawesome/free-solid-svg-icons"
+import {faRefresh, faFolderOpen, faTimes, faHouseChimney} from "@fortawesome/free-solid-svg-icons"
+import { useTypedNavigate } from "./mainWindow";
 // import { ElectonAPI } from "../tools/ElectronApi";
 
 // const { ipcRenderer } = window.require('electron')
 
 export const SystemHelper = () => {
+    const navigate = useTypedNavigate()
     return <div className="system-helper">
         <span title="Close app" onClick={() => {
             console.log('aaa', (window as any))
@@ -23,6 +25,8 @@ export const SystemHelper = () => {
         <span title="Open out folder" onClick={() => window.ElectronAPI.invoke.openExplorer('')}>
             <FontAwesomeIcon icon={faFolderOpen}/>
         </span>
-
+        <span title="Home" onClick={() => navigate('/')}>
+            <FontAwesomeIcon icon={faHouseChimney}/>
+        </span>
     </div>
 }

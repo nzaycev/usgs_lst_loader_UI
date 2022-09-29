@@ -9,17 +9,18 @@ import { BoundsSelector, ISelectionCoordinates } from "./BoundsSelector";
 import { SectorSelector } from "./SectorSelector";
 import { DateList } from "./DateList";
 import { HashRouter, Route, Navigate, Routes, PathRouteProps, useNavigate, useLocation, Location } from "react-router-dom";
-import { setDate } from "../actions/main-actions";
+import { setDate, setSceneState, watchScenesState } from "../actions/main-actions";
 import { useAppDispatch } from "../entry-points/app";
 import { DownloadManager } from "./download-manager/download-manager";
+import { checkDates } from "../backend/usgs-api";
 
 interface AppRoutes {
-  '/': void
+  '/add-downloading': void
   '/date-selector': void
   '/map': {date: Date}
   '/bounds': void
   '/date_list': ISelectionCoordinates
-  '/download-manager': void
+  '/': void
 }
 
 const TypedRoute: React.FC<PathRouteProps & {path: keyof AppRoutes | '*'}> = Route
@@ -37,22 +38,27 @@ export function useTypedLocation<T extends keyof AppRoutes>(){
 export const MainWindow = () => {
   const dispatch = useAppDispatch()
   useEffect(() => {
-    window.ElectronAPI.invoke.checkLastDate().then((ld) => {
+    window.ElectronAPI.on.stateChange((_, {state, displayId}) => {
+      console.log('change state', {state, displayId})
+      dispatch(setSceneState({state, displayId}))
+    })
+    checkDates().then((ld) => {
       dispatch(setDate(ld))
     })
-  }, [])
+  }, [dispatch])
   return (
     <div className="main-window">
-        <SystemHelper />
+        
         <HashRouter>
+          <SystemHelper />
           <Routes>
             <TypedRoute path="*" element={<Navigate to='/'/>} />
-            <TypedRoute path="/" element={<WaySelector />}/>
+            <TypedRoute path="/add-downloading" element={<WaySelector />}/>
             <TypedRoute path="/date-selector" element={<DateSelector />}/>
             <TypedRoute path="/map" element={<SectorSelector />}/>
             <TypedRoute path="/bounds" element={<BoundsSelector />}/>
             <TypedRoute path="/date_list" element={<DateList />}/>
-            <TypedRoute path="/download-manager" element={<DownloadManager />}/>
+            <TypedRoute path="/" element={<DownloadManager />}/>
           </Routes>
         </HashRouter>
     </div>

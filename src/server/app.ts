@@ -2,6 +2,9 @@
 (function () {
     const express = require('express');
     const path = require('path');
+    const gdal = require("gdal");
+    const dataset = gdal.open("C:\Users\shkid\Desktop\uhi disser\first manual test\LC08_L2SP_135024_20220202_20220211_02_T1\LC08_L2SP_135024_20220202_20220211_02_T1_QA_RADSAT.TIF");
+    console.log('dataset', dataset.bands.count())
     // const logger = require('morgan');
     // const cookieParser = require('cookie-parser');
     // const bodyParser = require('body-parser');

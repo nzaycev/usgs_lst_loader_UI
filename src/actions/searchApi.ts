@@ -1,10 +1,11 @@
 import {createApi} from '@reduxjs/toolkit/query/react'
 import { Polygon } from '@turf/turf'
+import { searchScenes } from '../backend/usgs-api'
 import { ISearchScenesFilter, RequestApi } from '../tools/ElectronApi'
 
 async function baseQuery({type, args}: {type: keyof RequestApi, args: any}) {
     try {
-        const data = await window.ElectronAPI.invoke[type](args)
+        const data = await searchScenes(args)
         return data
     }
     catch (e) {

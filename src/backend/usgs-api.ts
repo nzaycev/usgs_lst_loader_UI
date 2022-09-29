@@ -1,13 +1,14 @@
 import axios from "axios"
 import { ISearchScenesFilter } from "../tools/ElectronApi";
-import dotenv from 'dotenv'
+// import dotenv from 'dotenv'
+import { USGSLayerType } from "../actions/main-actions";
 
-console.log('dotenv', dotenv.config())
-console.log('procenv', process.env)
+// console.log('dotenv', dotenv.config())
+// console.log('procenv', process.env)
 
 const USGS_API_URL = 'https://m2m.cr.usgs.gov/api/api/json/stable'
-const username = process.env.usgs_username
-const password = process.env.usgs_password
+const username = window.usgs_username
+const password = window.usgs_password
 
 // Init instance of axios which works with BASE_URL
 export const axiosInstance = axios.create({ baseURL: USGS_API_URL });
@@ -21,7 +22,8 @@ const createSession = async () => {
   console.log('auth', authParams)
   const resp = await axios.post(`${USGS_API_URL}/login`, authParams)
   const {data} = resp.data // getting cookie from request
-  const [cookie] = resp.headers["set-cookie"]
+  const [cookie] = resp.headers["set-cookie"] || []
+  console.log('sss', axiosInstance.defaults.headers)
   ;(axiosInstance.defaults.headers as any)['User-Agent'] = 'Node USGS'
   ;(axiosInstance.defaults.headers as any)['X-Auth-Token'] = data
   ;(axiosInstance.defaults.headers as any)['Cookie'] = cookie
@@ -48,11 +50,13 @@ axiosInstance.interceptors.response.use(null, error => {
   const { response = {}, config: sourceConfig } = error;
 
   // checking if request failed cause Unauthorized
-  if (response.data.errorCode === 'UNAUTHORIZED_USER') {
+  if (!response.data || response.data.errorCode === 'UNAUTHORIZED_USER') {
     // if this request is first we set isGetActiveSessionRequest flag to true and run createSession
-    if (!isGetActiveSessionRequest) {
+    if (!isGetActiveSessionRequest && response.data) {
       isGetActiveSessionRequest = true;
-      createSession().then(([cookie, XAuth]) => {
+      createSession().then((test) => {
+        console.log({test})
+        const [cookie, XAuth] = test
         // when createSession resolve with cookie value we run all request from queue with new cookie
         isGetActiveSessionRequest = false;
         callRequestsFromQueue(cookie, XAuth);
@@ -67,6 +71,12 @@ axiosInstance.interceptors.response.use(null, error => {
     // and while isGetActiveSessionRequest equal true we create and return new promise
     const retryRequest = new Promise(resolve => {
       // we push new function to queue
+      if (!response.data) {
+        console.log('some error from m2m. wait for 5s')
+        setTimeout(() => {
+          resolve(axiosInstance(sourceConfig))
+        }, 5000)
+      }
       addRequestToQueue((cookie: any, XAuth: any) => {
         // function takes one param 'cookie'
         console.log("Retry with new session context %s request to %s", sourceConfig.method, sourceConfig.url);
@@ -88,8 +98,8 @@ const datasetName = "landsat_ot_c2_l2"
 
 const defaultSceneFilter = {
   sceneFilter: {
-    "where": {
-        "filterType": "and",
+    "metadataFilter" : {
+      "filterType": "and",
         "childFilters": [
             {
                 "filterType": "value",
@@ -110,8 +120,131 @@ const defaultSceneFilter = {
                 "operand": "="
             }
         ]
-    }
+      }
+    
   }
+}
+
+export const getDownloadDS = async (entityId: string) => {
+  const sceneIds = [entityId]
+  const downloadOptions = await axiosInstance.post('/download-options', {
+      "datasetName": datasetName,
+      "entityIds": sceneIds,
+  }).then(x => x.data.data)
+  console.log('do', downloadOptions)
+  // Aggregate a list of available products
+  const requiredLayers = ['ST_TRAD', 'ST_ATRAN', 'ST_URAD', 'ST_DRAD', 'SR_B5', 'SR_B4', 'QA_PIXEL']
+  const check_name = (name: string) => {
+    // if(name.indexOf('LC09') > -1) {
+    //   // TODO: discuss
+    //   return false
+    // }
+    for (let i = 0; i < requiredLayers.length; i += 1) {
+      const layerName = requiredLayers[i]
+      if (name.indexOf(layerName) != -1 && name.indexOf('.TIF') != -1){
+        return layerName
+      }
+    }
+    return false
+  }
+  const downloads: Record<string, {
+    'entityId': string;
+    'productId': string;
+    layerName?: USGSLayerType;
+  }> = {}
+    for (let i = 0; i < downloadOptions.length; i += 1) {
+      // Make sure the product is available for this scene
+      const product = downloadOptions[i]
+      if (product['available']) {
+        product['secondaryDownloads'].forEach((file: any) => {
+          console.log(`secondary file ${file['available']} ${check_name(file['displayId'])}`, i, JSON.stringify(file, null, 2))
+          const layerName = check_name(file['displayId'])
+          if (file['available'] && layerName) {
+            downloads[file['displayId']] = {entityId: file['entityId'], 'productId': file['id'], layerName: layerName as USGSLayerType}
+          }
+        })
+        // break
+      }
+    }
+    // Did we find products?
+    if (downloads){
+        console.log('downloads', downloads)
+        const requestedDownloadsCount = Object.keys(downloads).length
+        // set a label for the download request
+        const label = "download-sample" + entityId
+        const downloadUrls: {id: string, url: string, layerName: USGSLayerType}[] = []
+        // Call the download to get the direct download urls
+        const requestResults = await axiosInstance.post('/download-request', {
+          "downloads": downloads,
+          "label": label,
+          "downloadApplication": "EE"
+        }).then(x => x.data.data)
+        console.log('rr', requestResults)
+        // PreparingDownloads has a valid link that can be used but data may not be immediately available
+        // Call the download-retrieve method to get download that is available for immediate download
+        if (requestResults['preparingDownloads'] && requestResults['preparingDownloads'].length) {
+            const moreDownloadUrls = await axiosInstance.post('/download-retrieve', {
+              'label': label
+            }).then(x => x.data.data)
+            console.log('mdurls', moreDownloadUrls)
+
+
+            moreDownloadUrls['available'].forEach((download: any) => {
+              console.log('test',download['displayId'],downloads)
+              downloadUrls.push({
+                id: download['downloadId'],
+                url: download['url'],
+                layerName: downloads[download['displayId']].layerName,
+              })
+              console.log("DOWNLOAD: " + download['url'])
+            })
+
+            moreDownloadUrls['requested'].forEach((download: any) => {
+
+              downloadUrls.push({
+                id: download['downloadId'],
+                url: download['url'],
+                layerName: downloads[download['displayId']].layerName,
+              })
+              console.log("DOWNLOAD: " + download['url'])
+            })
+
+            // Didn't get all of the reuested downloads, call the download-retrieve method again probably after 30 seconds
+            while (downloadUrls.length < requestedDownloadsCount) {
+                const preparingDownloads = requestedDownloadsCount - downloadUrls.length
+                console.log("\n", preparingDownloads, "downloads are not available. Waiting for 5 seconds.\n")
+                await new Promise(resolve => setTimeout(resolve, 5000))
+                console.log("Trying to retrieve data\n")
+                const moreDownloadUrls = await axiosInstance.post('/download-retrieve', {
+                  'label': 'test'
+                }).then(x => x.data.data)
+                moreDownloadUrls['available'].forEach((download: any) => {
+                  if (!downloadUrls.find(x => x.id === download['downloadId'])) {
+                    console.log('test2',download['displayId'],downloads)
+
+                    downloadUrls.push({
+                      id: download['downloadId'],
+                      url: download['url'],
+                      layerName: downloads[download['displayId']].layerName,
+                    })
+                    console.log("DOWNLOAD: " + download['url'])
+                  }
+                })
+            }
+        } else {
+          requestResults['availableDownloads'].forEach((download: any, ind: number) => {
+            downloadUrls.push({
+              id: download['downloadId'],
+              url: download['url'],
+              // TODO: check
+              layerName: Object.values(downloads)[ind].layerName
+            })
+          })
+        }
+        console.log("\nAll downloads are available to download.\n")
+        return downloadUrls
+    }
+  return []
 }
 
 export const searchScenes = async ({startDate, endDate, bounds}: ISearchScenesFilter) => {
@@ -140,7 +273,10 @@ export const searchScenes = async ({startDate, endDate, bounds}: ISearchScenesFi
     }
 
     try {
-      const {data} = await axiosInstance.post('scene-search', filters)
+      const {data, ...props} = await axiosInstance.post('scene-search', filters)
+      if (!data) {
+        throw new Error(`Can't get scenes cause of ${JSON.stringify(props)}`)
+      }
       return {...data, ...filters}
     } catch (e) {
       throw new Error(`Can't get scenes cause of ${e}`)
@@ -154,8 +290,12 @@ export const checkDates = async () => {
     ...defaultSceneFilter,
   }
   try {
-    const {data} = await axiosInstance.post('scene-search', filters)
+    const {data, ...props} = await axiosInstance.post('scene-search', filters)
+    console.log('check dates', data)
     // return data
+    if (!data) {
+      throw new Error(`Can't get scenes cause of ${JSON.stringify(props)}`)
+    }
     return data['data']['results'][0]['temporalCoverage']['endDate']
   } catch (error) {
     throw new Error(`Can't check dates cause of ${error}`)

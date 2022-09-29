@@ -114,6 +114,7 @@
     "7zip-bin": "5.2.0",
     "axios": "0.27.2",
     "dotenv": "^16.0.2",
+    "electron-rebuild": "^3.2.9",
     "electron-squirrel-startup": "1.0.0",
     "electron-typescript-ipc": "^1.0.1",
     "fs": "0.0.1-security",

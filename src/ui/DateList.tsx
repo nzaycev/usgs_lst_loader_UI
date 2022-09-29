@@ -1,10 +1,11 @@
-import axios from "axios";
-import React from "react";
-import styled from "styled-components";
-import { useLoader } from "../tools/request";
-import { getUrl } from "../tools/urls";
+import React, { useEffect } from "react";
+import styled, { css, keyframes } from "styled-components";
 import { useSearchScenesQuery } from "../actions/searchApi";
-import { useTypedLocation, useTypedNavigate } from "./mainWindow";
+import { useTypedLocation } from "./mainWindow";
+import { useAppDispatch, useAppSelector } from "../entry-points/app";
+import { donwloadScene, watchScenesState } from "../actions/main-actions";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faCircleCheck, faSpinner } from "@fortawesome/free-solid-svg-icons";
 
 export const DateList = () => {
   const {state: spatial} = useTypedLocation<'/date_list'>()
@@ -16,24 +17,42 @@ export const DateList = () => {
     }
   })
 
-  console.log('aaa', {data, isLoading})
+  const dispatch = useAppDispatch()
+  useEffect(() => {
+    dispatch(watchScenesState())
+  }, [dispatch])
+
+  const {scenes, loading, wait} = useAppSelector(state => state.main)
+
+  console.log('aaa', {data, scenes, isLoading})
 
   return (
     <div style={{ width: "100%", padding: "16px 0" }}>
-      {isLoading ? (
+      {isLoading || loading ? (
         <p>...</p>
       ) : (
-        <List>
+        <List wait={wait}>
           {data.results.map(
             ({ displayId, entityId, temporalCoverage }: any) => {
+              const currentScene = scenes[displayId]
+              const isCurrentSceneLoading = currentScene?.stillLoading || (currentScene && !currentScene.calculated)
+              const isCurrentSceneReady = currentScene?.calculated
               return (
                 <ListItem
                   key={entityId}
                   onClick={() => {
+                    if (!currentScene) {
+                      dispatch(donwloadScene({
+                        displayId,
+                        entityId,
+                      }))
+                    }
                     // navigation.go("download", { displayId, entityId, spatial });
                   }}
                 >
                   {temporalCoverage.startDate.split(" ")[0]}
+                  {isCurrentSceneReady && <FontAwesomeIcon icon={faCircleCheck}/>}
+                  {isCurrentSceneLoading && <Spinner />}
                 </ListItem>
               );
             }
@@ -44,11 +63,28 @@ export const DateList = () => {
   );
 };
 
-const List = styled.ul`
+const spin = keyframes`
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+`
+
+const Spinner = styled(FontAwesomeIcon).attrs({icon: faSpinner})`
+  animation: 1s ${spin} linear infinite;
+`
+
+const List = styled.ul<{wait: boolean}>`
   list-style: none;
   margin: 0 auto;
   padding: 0;
   max-width: 400px;
+  ${({wait}) => wait && css`
+    opacity: 0.5;
+    pointer-events: none;
+  `}
 `;
 
 const ListItem = styled.li`
