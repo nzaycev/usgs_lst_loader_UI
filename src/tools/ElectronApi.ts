@@ -1,46 +1,52 @@
-import { GetApiType } from 'electron-typescript-ipc';
-import type { DisplayId, ISceneState, USGSLayerType } from '../actions/main-actions';
+import { GetApiType } from "electron-typescript-ipc";
+import type {
+  DisplayId,
+  ISceneState,
+  USGSLayerType,
+} from "../actions/main-actions";
+import type { INetworkSettings } from "../ui/network-settings/network-settings-state";
 
 export interface IScene {
-  id: string
-  date: string
-  coords: number[]
+  id: string;
+  date: string;
+  coords: number[];
 }
 
 export interface ISearchScenesFilter {
-  startDate?: string
-  endDate?: string
+  startDate?: string;
+  endDate?: string;
   bounds?: {
-    lng: [number, number]
-    lat: [number, number]
-  }
+    lng: [number, number];
+    lat: [number, number];
+  };
 }
 
 export interface DownloadDS {
   id: string;
   url: string;
-  layerName: USGSLayerType
+  layerName: USGSLayerType;
 }
 export interface DownloadProps {
   entityId: string;
   displayId: string;
-  ds: DownloadDS[]
+  ds: DownloadDS[];
 }
 
 export type RequestApi = {
-  openExplorer: (str: string) => Promise<void>
-  searchScenes: (arg: ISearchScenesFilter) => Promise<IScene[] | any>
-  watch: () => Promise<Partial<Record<DisplayId, ISceneState>>>
-  checkLastDate: () => Promise<string>
-  download: (arg: DownloadProps) => Promise<void>
-}
+  openExplorer: (str: string) => Promise<void>;
+  searchScenes: (arg: ISearchScenesFilter) => Promise<IScene[] | any>;
+  watch: () => Promise<Partial<Record<DisplayId, ISceneState>>>;
+  checkLastDate: () => Promise<string>;
+  download: (arg: DownloadProps) => Promise<void>;
+  watchNetworkSettings: () => Promise<INetworkSettings>;
+  saveNetworkSettings: (settings: INetworkSettings) => Promise<void>;
+};
 
 export type HookApi = {
-  stateChange: (args: {displayId: string, state: ISceneState}) => Promise<void>
-}
+  stateChange: (args: {
+    displayId: string;
+    state: ISceneState;
+  }) => Promise<void>;
+};
 
-
-export type Api = GetApiType<
-  RequestApi,
-  HookApi
->;
+export type Api = GetApiType<RequestApi, HookApi>;

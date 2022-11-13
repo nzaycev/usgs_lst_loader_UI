@@ -15,7 +15,7 @@
     "resolveJsonModule": true,
     "lib": ["DOM", "ES2019"],
     "paths": {
-      "*": ["node_modules/*"]
+      "*": ["node_modules/*", "src/*"]
     }
   },
   "include": ["src/**/*"]

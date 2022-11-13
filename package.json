@@ -5,9 +5,10 @@
   "description": "My Electron application description",
   "main": ".webpack/main",
   "scripts": {
-    "start": "electron-forge start",
-    "package": "electron-forge package",
+    "start": "set APP_DEV=true && electron-forge start",
+    "package": "electron-forge package && npm run copy-env-file",
     "build": "electron-builder build --pd out/usgs-lst-loader-win32-x64",
+    "copy-env-file": "copy \"./.env\" \"out/usgs-lst-loader-win32-x64\"",
     "make-squirell": "electron-forge make --targets @electron-forge/maker-squirrel",
     "make-wix": "electron-forge make --targets @electron-forge/maker-wix",
     "make-nsis": "npm run package && npm run build",
@@ -33,6 +34,9 @@
   "license": "MIT",
   "config": {
     "forge": {
+      "packagerConfig": {
+        "extraResource": "./public"
+      },
       "makers": [
         {
           "name": "@electron-forge/maker-squirrel",
@@ -106,6 +110,9 @@
   },
   "dependencies": {
     "@babel/runtime": "7.0.0",
+    "@chakra-ui/react": "^1.8.9",
+    "@emotion/react": "^11.10.5",
+    "@emotion/styled": "^11.10.5",
     "@fortawesome/fontawesome-svg-core": "6.1.1",
     "@fortawesome/free-solid-svg-icons": "6.1.1",
     "@fortawesome/react-fontawesome": "0.1.18",
@@ -114,9 +121,9 @@
     "7zip-bin": "5.2.0",
     "axios": "0.27.2",
     "dotenv": "^16.0.2",
-    "electron-rebuild": "^3.2.9",
     "electron-squirrel-startup": "1.0.0",
     "electron-typescript-ipc": "^1.0.1",
+    "framer-motion": "^6.5.1",
     "fs": "0.0.1-security",
     "lodash": "4.17.21",
     "lodash.debounce": "4.0.8",
