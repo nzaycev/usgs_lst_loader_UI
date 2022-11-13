@@ -77,7 +77,7 @@ export const DateList = () => {
                       );
                       toast({
                         title: "Downloading was started",
-                        position: "top-left",
+                        position: "bottom-left",
                         description:
                           "You can go to the home page to check downloading progress",
                         duration: 5000,
