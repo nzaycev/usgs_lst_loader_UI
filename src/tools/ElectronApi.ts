@@ -4,6 +4,7 @@ import type {
   ISceneState,
   USGSLayerType,
 } from "../actions/main-actions";
+import { SettingsChema } from "../backend/settings-store";
 import type { INetworkSettings } from "../ui/network-settings/network-settings-state";
 
 export interface IScene {
@@ -38,6 +39,11 @@ export type RequestApi = {
   checkLastDate: () => Promise<string>;
   download: (sceneId: string) => Promise<string>;
   addRepo: (arg: DownloadProps, alsoDownload?: boolean) => Promise<void>;
+  getStoreValue: (key: keyof SettingsChema | string) => Promise<unknown>;
+  setStoreValue: (
+    key: keyof SettingsChema | string,
+    value: unknown
+  ) => Promise<void>;
   watchNetworkSettings: () => Promise<INetworkSettings>;
   saveNetworkSettings: (settings: INetworkSettings) => Promise<void>;
 };

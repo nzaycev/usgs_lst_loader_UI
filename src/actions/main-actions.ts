@@ -33,12 +33,14 @@ interface IMainState {
   wait: boolean;
   lastAvailableDate?: Date;
   scenes: Partial<Record<DisplayId, ISceneState>>;
+  authorized: boolean;
 }
 
 const initialState: IMainState = {
   loading: false,
   wait: false,
   scenes: {},
+  authorized: false,
 };
 
 export const watchScenesState = createAsyncThunk<
@@ -88,6 +90,9 @@ const mainActions = createSlice({
   name: "main",
   initialState,
   reducers: {
+    getAccess(state) {
+      state.authorized = true;
+    },
     setDate(state, action: PayloadAction<string>) {
       state.lastAvailableDate = new Date(action.payload);
     },

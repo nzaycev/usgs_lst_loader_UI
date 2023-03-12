@@ -29,6 +29,7 @@ import type { ISceneState, USGSLayerType } from "../actions/main-actions";
 import { FsWatcher } from "../backend/fs-watcher";
 import type { INetworkSettings } from "../ui/network-settings/network-settings-state";
 import { applyProxySettings } from "./proxy-settings";
+import { SettingsChema, store } from "../backend/settings-store";
 
 const fsWatcher = new FsWatcher(app);
 
@@ -110,13 +111,18 @@ const createWindow = async () => {
   ipcMain.handle<Api>(
     "saveNetworkSettings",
     async (_, settings: INetworkSettings) => {
-      const userSettingsPath = path.join(
-        app.getPath("userData"),
-        ".networkSettings"
-      );
-      fs.writeFileSync(userSettingsPath, JSON.stringify(settings));
+      // const userSettingsPath = path.join(
+      //   app.getPath("userData"),
+      //   ".networkSettings"
+      // );
+      // fs.writeFileSync(userSettingsPath, JSON.stringify(settings));
       applyProxySettings(app, mainWindow, settings.proxy);
-      return;
+      // return;
+      if (settings.proxy) {
+        store.set("proxySettings", settings.proxy);
+      } else {
+        store.delete("proxySettings");
+      }
     }
   );
 
@@ -137,7 +143,7 @@ const createWindow = async () => {
    */
   ipcMain.handle<Api>(
     "addRepo",
-    async (_, { displayId, ds }: DownloadProps, alsoDownload) => {
+    async (_, { displayId, ds }: DownloadProps, alsoDownload: boolean) => {
       const appdataPath = path.join(app.getPath("userData"), "localStorage");
       const scenePath = path.join(appdataPath, displayId);
       if (!fs.existsSync(scenePath)) {
@@ -160,6 +166,23 @@ const createWindow = async () => {
       };
       fs.writeFileSync(indexFilePath, JSON.stringify(sceneState, null, 2));
       console.log({ indexFilePath, sceneState });
+    }
+  );
+
+  ipcMain.handle(
+    "getStoreValue",
+    (event, key: keyof SettingsChema | string) => {
+      return store.get(key);
+    }
+  );
+
+  ipcMain.handle(
+    "setStoreValue",
+    (event, key: keyof SettingsChema, value: unknown) => {
+      if (!value) {
+        store.delete(key);
+      }
+      return store.set(key, value);
     }
   );
 
@@ -221,13 +244,16 @@ const createWindow = async () => {
   );
 
   if (fs.existsSync(userSettingsPath)) {
-    fs.readFile(userSettingsPath, (err, data) => {
-      if (err) {
-        app.exit(1);
-      }
-      const settings = JSON.parse(data.toString()) as INetworkSettings;
-      applyProxySettings(app, mainWindow, settings.proxy);
-    });
+    // fs.readFile(userSettingsPath, (err, data) => {
+    //   if (err) {
+    //     app.exit(1);
+    //   }
+    // const settings = JSON.parse(data.toString()) as INetworkSettings;
+    const settings = store.get("proxySettings") as
+      | INetworkSettings["proxy"]
+      | undefined;
+    applyProxySettings(app, mainWindow, settings);
+    // });
   }
 };
 

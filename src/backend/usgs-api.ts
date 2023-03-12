@@ -3,35 +3,30 @@ import { ISearchScenesFilter } from "../tools/ElectronApi";
 // import dotenv from 'dotenv'
 import { USGSLayerType } from "../actions/main-actions";
 import turf from "@turf/turf";
+import { SettingsChema } from "./settings-store";
 // import HttpsProxyAgent from 'https-proxy-agent'
 
 // console.log('dotenv', dotenv.config())
 // console.log('procenv', process.env)
 
 const USGS_API_URL = "https://m2m.cr.usgs.gov/api/api/json/stable";
-const username = window.usgs_username;
-const password = window.usgs_password;
+const username = ""; //window.usgs_username;
+const password = ""; //window.usgs_password;
+
+const authParams = {
+  username,
+  password,
+};
 
 // Init instance of axios which works with BASE_URL
 // const httpsAgent = HttpsProxyAgent({host: '172.16.0.2', port: 8080, auth: 'anna:gosteva'})
 export const axiosInstance = axios.create({
   baseURL: USGS_API_URL,
-  // proxy: {
-  //   host: '172.16.0.2',
-  //   port: 8080,
-  //   protocol: 'http',
-  //   auth: {
-  //     username: 'anna', password: 'gosteva'
-  //   }
-  // }
 });
 
 const createSession = async () => {
   console.log("create session");
-  const authParams = {
-    username,
-    password,
-  };
+
   console.log("auth", authParams);
   const resp = await axios.post(`${USGS_API_URL}/login`, authParams);
   const { data } = resp.data; // getting cookie from request
@@ -58,12 +53,11 @@ const clearQueue = () => {
 
 // registering axios interceptor which handle response's errors
 axiosInstance.interceptors.response.use(null, (error) => {
-  console.error(error.message); //logging here
-
   const { response = {}, config: sourceConfig } = error;
 
   // checking if request failed cause Unauthorized
-  if (!response.data || response.data.errorCode === "UNAUTHORIZED_USER") {
+  if (response.status === 401 || response.status === 403) {
+    // if (!response.data || response.data.errorCode === "UNAUTHORIZED_USER") {
     // if this request is first we set isGetActiveSessionRequest flag to true and run createSession
     if (!isGetActiveSessionRequest && response.data) {
       isGetActiveSessionRequest = true;
@@ -381,6 +375,22 @@ export const searchScenes = async ({
   } catch (e) {
     throw new Error(`Can't get scenes cause of ${e}`);
   }
+};
+
+export const checkUserPermissons = async (creds: SettingsChema["userdata"]) => {
+  authParams.username = creds.username;
+  authParams.password = creds.password;
+  try {
+    await axiosInstance.post(`${USGS_API_URL}/logout`);
+  } catch (e) {
+    console.log("cant logout");
+  }
+  try {
+    await axiosInstance.post(`${USGS_API_URL}/login`, creds);
+  } catch (e) {
+    return;
+  }
+  return axiosInstance.get("permissions");
 };
 
 export const checkDates = async () => {

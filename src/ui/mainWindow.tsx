@@ -18,11 +18,13 @@ import {
   setDate,
   watchScenesState,
 } from "../actions/main-actions";
-import { useAppDispatch } from "../entry-points/app";
+import { useAppDispatch, useAppSelector } from "../entry-points/app";
 import { DownloadManager } from "./download-manager/download-manager";
 import { checkDates } from "../backend/usgs-api";
+import { LoginView } from "./login-view";
 
 interface AppRoutes {
+  "/auth": void;
   "/date-selector": void;
   "/bounds": void;
   "/date_list": ISelectionCoordinates;
@@ -47,6 +49,7 @@ export function useTypedLocation<T extends keyof AppRoutes>() {
 
 export const MainWindow = () => {
   const dispatch = useAppDispatch();
+  const authorized = useAppSelector((state) => state.main.authorized);
   useEffect(() => {
     const interval = setInterval(() => {
       dispatch(watchScenesState());
@@ -61,10 +64,19 @@ export const MainWindow = () => {
       <HashRouter>
         <SystemHelper />
         <Routes>
-          <TypedRoute path="*" element={<Navigate to="/" />} />
-          <TypedRoute path="/bounds" element={<BoundsSelector />} />
-          <TypedRoute path="/date_list" element={<DateList />} />
-          <TypedRoute path="/" element={<DownloadManager />} />
+          {authorized ? (
+            <>
+              <TypedRoute path="*" element={<Navigate to="/" />} />
+              <TypedRoute path="/bounds" element={<BoundsSelector />} />
+              <TypedRoute path="/date_list" element={<DateList />} />
+              <TypedRoute path="/" element={<DownloadManager />} />
+            </>
+          ) : (
+            <>
+              <TypedRoute path="*" element={<Navigate to="/auth" />} />
+              <TypedRoute path="/auth" element={<LoginView />} />
+            </>
+          )}
         </Routes>
       </HashRouter>
     </div>

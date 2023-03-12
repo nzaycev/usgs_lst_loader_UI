@@ -126,6 +126,7 @@
     "electron-dl": "^3.5.0",
     "electron-download-manager": "^2.1.2",
     "electron-squirrel-startup": "1.0.0",
+    "electron-store": "^8.1.0",
     "electron-typescript-ipc": "^1.0.1",
     "framer-motion": "^6.5.1",
     "fs": "0.0.1-security",

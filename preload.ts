@@ -25,6 +25,12 @@ const api: Api = {
     async addRepo(arg, alsoDownload) {
       return ipcRenderer.invoke<Api>("addRepo", arg, alsoDownload);
     },
+    async getStoreValue(key) {
+      return ipcRenderer.invoke<Api>("getStoreValue", key);
+    },
+    async setStoreValue(key, value) {
+      return ipcRenderer.invoke<Api>("setStoreValue", key, value);
+    },
   },
   on: {
     stateChange(listener) {
