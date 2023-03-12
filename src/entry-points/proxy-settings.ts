@@ -16,7 +16,7 @@ export const applyProxySettings = (
   if (!proxySettings) {
     return;
   }
-  const proxyUrl = `${proxySettings.protocol}://${proxySettings.host}:${proxySettings.protocol}`;
+  const proxyUrl = `${proxySettings.protocol}://${proxySettings.host}:${proxySettings.port}`;
   mainWindow.webContents.session.setProxy({
     proxyRules: proxyUrl,
   });

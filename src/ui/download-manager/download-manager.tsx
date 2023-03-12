@@ -1,18 +1,23 @@
+import { toast, useToast } from "@chakra-ui/react";
 import {
   faCalculator,
   faCheckCircle,
-  faCircleDown,
   faDownload,
   faFolderOpen,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { isFulfilled } from "@reduxjs/toolkit";
+
 import React, { useEffect, useMemo, useState } from "react";
+import styled, { css } from "styled-components";
 import {
   DisplayId,
+  downloadScene,
   ISceneState,
   USGSLayerType,
   watchScenesState,
 } from "../../actions/main-actions";
+import { selectDownloadUrls } from "../../actions/selectors";
 import { useAppDispatch, useAppSelector } from "../../entry-points/app";
 import { useTypedNavigate } from "../mainWindow";
 import {
@@ -46,9 +51,19 @@ const SceneStateView = ({
   displayId: DisplayId;
 }) => {
   const [expanded, setExpanded] = useState(false);
+  const toast = useToast();
+
+  const dispatch = useAppDispatch();
+  const urls = useAppSelector((state) => selectDownloadUrls(state, displayId));
   const progress = useMemo(() => {
     return getAggregatedProgress(state);
   }, [JSON.stringify(state)]);
+  const isLoadRequired =
+    state.isRepo &&
+    Object.entries(state.donwloadedFiles).find(
+      ([_, x]) => !x.progress || x.progress < 1
+    );
+  const isLoadPossible = state.isRepo;
   return (
     <SceneListItem>
       <ProgressView progress={progress}>
@@ -60,20 +75,52 @@ const SceneStateView = ({
             }}
           />
           <span style={{ flex: 1 }}>{displayId}</span>
-          {state.stillLoading && <FontAwesomeIcon icon={faCircleDown} />}
-          {!state.stillLoading && !state.calculated && (
-            <FontAwesomeIcon icon={faCalculator} />
+          {isLoadRequired && (
+            <ClickableIcon
+              icon={faDownload}
+              disable={isLoadPossible}
+              onClick={async () => {
+                urls.forEach((url) => {
+                  const anchor = document.createElement("a");
+                  anchor.href = url;
+                  anchor.target = "_blank";
+                  anchor.download = "";
+                  anchor.click();
+                });
+              }}
+            />
+          )}
+          {/* {state.stillLoading && <FontAwesomeIcon icon={faCircleDown} />} */}
+          {!isLoadRequired && isLoadPossible && !state.calculated && (
+            <ClickableIcon
+              icon={faCalculator}
+              onClick={async () => {
+                if (!isLoadPossible) {
+                  return;
+                }
+                const action = await dispatch(downloadScene({ displayId }));
+                if (isFulfilled(action)) {
+                  toast({
+                    title: "The scene calculation was started",
+                    position: "bottom-left",
+                    description: `If the process fall, run it manually by [> ${action.payload}]`,
+                    duration: 5000,
+                    isClosable: true,
+                  });
+                }
+              }}
+            />
           )}
           {state.calculated && <FontAwesomeIcon icon={faCheckCircle} />}
-          {state.calculated && (
+          {/* {state.calculated && (
             <FontAwesomeIcon
               onClick={() => {
-                window.ElectronAPI.invoke.openExplorer(displayId);
+                dispatch(downloadScene({ displayId }));
               }}
               style={{ cursor: "pointer" }}
               icon={faFolderOpen}
             />
-          )}
+          )} */}
         </AggregatedView>
       </ProgressView>
       {expanded && (
@@ -160,12 +207,12 @@ export const DownloadManager = () => {
 
 const getAggregatedProgress = (state: ISceneState) => {
   let progress = 0;
-  if (!state.stillLoading) {
-    if (state.calculated) {
-      return 1;
-    }
-    return 0.5 + state.calculation;
-  }
+  // if (!state.stillLoading) {
+  //   if (state.calculated) {
+  //     return 1;
+  //   }
+  //   return 0.5 + state.calculation;
+  // }
 
   const required: USGSLayerType[] = [
     "ST_TRAD",
@@ -180,5 +227,16 @@ const getAggregatedProgress = (state: ISceneState) => {
     progress +=
       (state.donwloadedFiles[layer]?.progress || 0) / 2 / required.length;
   });
-  return progress;
+  return progress + (state.calculation || 0) / 2;
 };
+
+const ClickableIcon = styled(FontAwesomeIcon)<{ disable?: boolean }>`
+  ${({ disable }) =>
+    !disable &&
+    css`
+      cursor: pointer;
+      &:hover {
+        color: blue;
+      }
+    `}
+`;

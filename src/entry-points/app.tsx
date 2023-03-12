@@ -2,6 +2,7 @@ import { configureStore } from "@reduxjs/toolkit";
 import React from "react";
 import ReactDOM from "react-dom";
 import { MainWindow } from "../ui/mainWindow";
+import logger from "redux-logger";
 import {
   Provider,
   TypedUseSelectorHook,
@@ -40,7 +41,7 @@ export const store = configureStore({
   middleware(gdf) {
     return gdf({
       serializableCheck: false,
-    }).concat([searchApi.middleware, testNetworkApi.middleware]);
+    }).concat([searchApi.middleware, testNetworkApi.middleware, logger]);
   },
   reducer: {
     main: mainActions.reducer,

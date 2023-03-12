@@ -65,6 +65,7 @@ const searchApi = createApi({
   baseQuery,
   endpoints: (builder) => ({
     searchScenes: builder.query<ISearchResponse, ISearchScenesFilter>({
+      // @ts-ignore
       query: (args) => {
         return {
           type: "searchScenes",

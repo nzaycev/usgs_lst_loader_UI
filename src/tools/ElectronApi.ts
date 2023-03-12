@@ -34,18 +34,36 @@ export interface DownloadProps {
 
 export type RequestApi = {
   openExplorer: (str: string) => Promise<void>;
-  searchScenes: (arg: ISearchScenesFilter) => Promise<IScene[] | any>;
   watch: () => Promise<Partial<Record<DisplayId, ISceneState>>>;
   checkLastDate: () => Promise<string>;
-  download: (arg: DownloadProps) => Promise<void>;
+  download: (sceneId: string) => Promise<string>;
+  addRepo: (arg: DownloadProps, alsoDownload?: boolean) => Promise<void>;
   watchNetworkSettings: () => Promise<INetworkSettings>;
   saveNetworkSettings: (settings: INetworkSettings) => Promise<void>;
+};
+
+export type ParsedPath = {
+  scenePath: string;
+  sceneLayer?: USGSLayerType;
+  isIndex: boolean;
+  isOutFile: boolean;
 };
 
 export type HookApi = {
   stateChange: (args: {
     displayId: string;
     state: ISceneState;
+  }) => Promise<void>;
+  fileStateChange: (args: {
+    displayId: string;
+    type: USGSLayerType;
+    progress: number;
+  }) => Promise<void>;
+  fsChange: (args: {
+    event: "add" | "addDir" | "change" | "unlink" | "unlinkDir";
+    parsedPath: ParsedPath;
+    indexContent?: ISceneState;
+    size?: number;
   }) => Promise<void>;
 };
 

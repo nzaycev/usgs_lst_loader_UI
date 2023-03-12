@@ -1,93 +1,214 @@
 import path from "path";
-import fs, { stat } from 'fs';
-import type { DisplayId, ISceneState } from "../actions/main-actions";
+import fs, { stat } from "fs";
+import type {
+  DisplayId,
+  ISceneState,
+  USGSLayerType,
+} from "../actions/main-actions";
 import { ipcMain } from "electron-typescript-ipc";
-import { Api } from "../tools/ElectronApi";
+import { Api, ParsedPath } from "../tools/ElectronApi";
 import { BrowserWindow } from "electron";
+import chokidar from "chokidar";
+import { throttle } from "lodash";
 
-const union = (a: any[], b: any[]) => {
-    const union = [...a, ...b.filter(x => !a.includes(x))]
-    console.log('union', union)
-    return union
+function union<T>(a: T[], b: T[]): T[] {
+  const union = [...a, ...b.filter((x) => !a.includes(x))];
+  console.log("union", union);
+  return union;
 }
 
+function send(
+  event: "add" | "addDir" | "change" | "unlink" | "unlinkDir",
+  path: string,
+  stats: any,
+  parsedPath: ParsedPath
+) {
+  ipcMain.send<Api>(this.mainWindow, "fsChange", {
+    event,
+    parsedPath,
+    size: stats?.size,
+    indexContent: parsedPath.isIndex
+      ? JSON.parse(fs.readFileSync(path).toString())
+      : undefined,
+  });
+}
+const throttledSend = throttle(send, 500);
+
 export class FsWatcher {
+  state: Record<DisplayId, ISceneState>;
+  watchers: Record<DisplayId, fs.FSWatcher>;
+  mainWindow: BrowserWindow;
+  app: Electron.App;
+  appdataPath: string;
 
-    state: Record<DisplayId, ISceneState>
-    watchers: Record<DisplayId, fs.FSWatcher>
-    mainWindow: BrowserWindow
-    app: Electron.App
+  setMainWindow(mainWindow?: BrowserWindow) {
+    this.mainWindow = mainWindow;
+  }
 
-    setMainWindow(mainWindow?: BrowserWindow) {
-        this.mainWindow = mainWindow
+  constructor(app: Electron.App) {
+    this.state = {};
+    this.watchers = {};
+    this.app = app;
+    // this.handlers = {}
+    this.appdataPath = path.join(app.getPath("userData"), "localStorage");
+    console.log("appdatapath constr", this.appdataPath);
+
+    if (!fs.existsSync(this.appdataPath)) {
+      fs.mkdirSync(this.appdataPath);
     }
+    chokidar
+      .watch(this.appdataPath, {
+        alwaysStat: true,
+        depth: 2,
+        interval: 400,
+        // atomic: 1000,
+      })
+      .on("all", (event, path, stats) => {
+        // console.log(event, path, stats?.size);
+        const parsedPath = this.parsePath(path);
+        // switch (event) {
+        //   case "addDir":
+        //     this.addDir(path);
+        //     break;
+        //   case "add":
+        //     this.add(path, stats.size);
+        //     break;
+        //   case "change":
+        //     break;
+        //   case "unlink":
+        //     break;
+        //   case "unlinkDir":
+        //     break;
+        // }
 
-    private checkScene(scenePath: string){
-        const appdataPath = path.join(this.app.getPath('userData'), 'localStorage')
-        const indexPath = path.join(appdataPath, scenePath, 'index.json')
-        if (!fs.existsSync(indexPath)) {
-            delete this.state[scenePath]
-            this.watchers[scenePath].close()
-            this.mainWindow && !this.mainWindow.isDestroyed() 
-                && ipcMain.send<Api>(this.mainWindow, 'stateChange', {displayId: scenePath, state: undefined})
-            delete this.watchers[scenePath]
-            return
+        // throttledSend(event, path, stats, parsedPath);
+        // const throttled = throttle(send, 500);
+        // throttled();
+      });
+  }
+
+  private parsePath(path: string): ParsedPath {
+    const relative = path.replace(this.appdataPath, "");
+    const [scenePath, ...depth] = relative.split("/");
+    const getSceneLayer = (depth1: string): USGSLayerType | undefined => {
+      if (!depth1 || depth1 === "out" || depth1 === "index.json") {
+        return;
+      }
+      return depth1.split(".TIF")[0].split("_T1_")[1] as USGSLayerType;
+    };
+    return {
+      scenePath,
+      isIndex: depth[1] === "index.json",
+      isOutFile: depth[1] === "out",
+      sceneLayer: getSceneLayer(depth[1]),
+    };
+  }
+
+  private addDir(path: string) {
+    const { scenePath, isOutFile } = this.parsePath(path);
+    if (isOutFile) {
+      return;
+    }
+    if (!this.state[scenePath]) {
+      this.state[scenePath] = JSON.parse(fs.readFileSync(path).toString());
+    }
+  }
+
+  private add(path: string, size: number) {
+    const { isIndex, isOutFile, scenePath, sceneLayer } = this.parsePath(path);
+    if (isIndex) {
+      if (!this.state[scenePath]) {
+        this.state[scenePath] = JSON.parse(fs.readFileSync(path).toString());
+      }
+      return;
+    }
+    if (!sceneLayer || isOutFile) {
+      return;
+    }
+    if (this.state[scenePath].donwloadedFiles[sceneLayer].size) {
+      this.state[scenePath].donwloadedFiles[sceneLayer].progress =
+        size / this.state[scenePath].donwloadedFiles[sceneLayer].size;
+    }
+  }
+
+  getState() {
+    const state: Record<DisplayId, ISceneState> = {};
+    const dirs = fs.readdirSync(this.appdataPath);
+    dirs.forEach((sceneId) => {
+      const item = path.join(this.appdataPath, sceneId);
+      const stat = fs.statSync(item);
+      if (!stat.isDirectory) {
+        return;
+      }
+      //   const splitted = item.split("/");
+      //   const sceneId = splitted[splitted.length - 1];
+      const subItems = fs.readdirSync(item);
+      const indexPath = path.join(item, "index.json");
+      let indexState: ISceneState | undefined;
+      if (fs.existsSync(indexPath)) {
+        indexState = JSON.parse(fs.readFileSync(indexPath).toString());
+      }
+      const getFileProgress = (
+        type: USGSLayerType,
+        size?: number
+      ): number | undefined => {
+        const filePath = path.join(item, `${sceneId}_${type}.TIF`);
+        const fileExists = fs.existsSync(filePath);
+        if (!size) {
+          return fileExists ? 1 : 0;
         }
-        const fileContent = fs.readFileSync(indexPath).toString()
-        console.log('scene', fileContent)
-        if (fileContent === JSON.stringify(this.state[scenePath], null, 2)) {
-            return
+        if (fileExists) {
+          const stats = fs.statSync(filePath);
+          return stats.size / size;
         }
-        try {
-            const sceneState = JSON.parse(fileContent)
-            this.state[scenePath] = sceneState
-            this.mainWindow && !this.mainWindow.isDestroyed() 
-                && ipcMain.send<Api>(this.mainWindow, 'stateChange', {displayId: scenePath, state: sceneState})
-        } catch(e) {
-            console.warn(e)
-        }
-    }
+        return;
+      };
+      const getFileStats = (type: USGSLayerType) => ({
+        url: indexState?.donwloadedFiles[type]?.url || "",
+        size: indexState?.donwloadedFiles[type]?.size,
+        progress: getFileProgress(
+          type,
+          indexState?.donwloadedFiles[type]?.size
+        ),
+      });
+      const donwloadedFiles: ISceneState["donwloadedFiles"] = {
+        QA_PIXEL: getFileStats("QA_PIXEL"),
+        SR_B4: getFileStats("SR_B4"),
+        SR_B5: getFileStats("SR_B5"),
+        ST_ATRAN: getFileStats("ST_ATRAN"),
+        ST_DRAD: getFileStats("ST_DRAD"),
+        ST_TRAD: getFileStats("ST_TRAD"),
+        ST_URAD: getFileStats("ST_URAD"),
+      };
 
-    private checkDir() {
-        const appdataPath = path.join(this.app.getPath('userData'), 'localStorage')
-        union(fs.readdirSync(appdataPath), Object.keys(this.state)).forEach(scenePath => {
-            const indexPath = path.join(appdataPath, scenePath, 'index.json')
-            console.log(`checkdir ${scenePath}`)
-            this.checkScene(scenePath)
-            if (this.watchers[scenePath] || !fs.existsSync(indexPath)) {
-                return
-            }
-            this.watchers[scenePath] = fs.watch(indexPath, (event) => {
-                console.log('file watcher',scenePath)
-                this.checkScene(scenePath)
-            })
-            
-        })
-    }
+      state[sceneId] = {
+        isRepo: !!indexState,
+        scenePath: item,
+        calculation: indexState?.calculation,
+        calculated: indexState?.calculated,
+        donwloadedFiles,
+      };
+    });
+    return state;
+    // return this.state;
+  }
 
-    constructor(app: Electron.App) { 
-        this.state = {}
-        this.watchers = {}
-        this.app = app
-        const appdataPath = path.join(app.getPath('userData'), 'localStorage')
-        console.log('appdatapath constr', appdataPath)
+  getSceneState(sceneId: DisplayId) {
+    return this.state[sceneId];
+  }
 
-        if (!fs.existsSync(appdataPath)) {
-            fs.mkdirSync(appdataPath)
-        }
-        fs.watch(appdataPath, event => {
-            console.log('fs watch', event)
-            this.checkDir()
-        })
-        this.checkDir()
-    }
+  setState(sceneId: DisplayId, callback: (args: ISceneState) => ISceneState) {
+    const indexPath = path.resolve(
+      this.app.getPath("userData"),
+      "localStorage",
+      sceneId,
+      "index.json"
+    );
 
-    getState() {
-        return this.state
-    }
-
-    async stillWorking() {
-        return !!Object.values(this.state).find(x => x.downloadPid || x.calculationPid)
-    }
-
+    const prevState: ISceneState = JSON.parse(
+      fs.readFileSync(indexPath).toString()
+    );
+    const newState = callback(prevState);
+    fs.writeFileSync(indexPath, JSON.stringify(newState, null, 2));
+  }
 }

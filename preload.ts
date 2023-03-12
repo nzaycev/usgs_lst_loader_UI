@@ -10,9 +10,6 @@ const api: Api = {
     async watch() {
       return ipcRenderer.invoke<Api>("watch");
     },
-    async searchScenes(args) {
-      return ipcRenderer.invoke<Api>("searchScenes", args);
-    },
     async checkLastDate() {
       return ipcRenderer.invoke<Api>("checkLastDate");
     },
@@ -25,10 +22,19 @@ const api: Api = {
     async watchNetworkSettings() {
       return ipcRenderer.invoke<Api>("watchNetworkSettings");
     },
+    async addRepo(arg, alsoDownload) {
+      return ipcRenderer.invoke<Api>("addRepo", arg, alsoDownload);
+    },
   },
   on: {
     stateChange(listener) {
       ipcRenderer.on<Api>("stateChange", listener);
+    },
+    fileStateChange(listener) {
+      ipcRenderer.on<Api>("fileStateChange", listener);
+    },
+    fsChange(listener) {
+      ipcRenderer.on<Api>("fsChange", listener);
     },
   },
 };

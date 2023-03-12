@@ -3,9 +3,13 @@ import styled, { css } from "styled-components";
 import { useSearchScenesQuery } from "../actions/searchApi";
 import { useTypedLocation } from "./mainWindow";
 import { useAppDispatch, useAppSelector } from "../entry-points/app";
-import { donwloadScene, watchScenesState } from "../actions/main-actions";
+import { addSceneToRepo, watchScenesState } from "../actions/main-actions";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCircleCheck } from "@fortawesome/free-solid-svg-icons";
+import {
+  faCircleCheck,
+  faDatabase,
+  faStore,
+} from "@fortawesome/free-solid-svg-icons";
 import { Code, Spinner, useToast } from "@chakra-ui/react";
 
 export const DateList = () => {
@@ -20,11 +24,8 @@ export const DateList = () => {
   const toast = useToast();
 
   const dispatch = useAppDispatch();
-  useEffect(() => {
-    dispatch(watchScenesState());
-  }, [dispatch]);
 
-  const { scenes, loading, wait } = useAppSelector((state) => state.main);
+  const { scenes, wait } = useAppSelector((state) => state.main);
 
   console.log("aaa", { data, scenes, isLoading });
 
@@ -43,7 +44,7 @@ export const DateList = () => {
         paddingTop: 40,
       }}
     >
-      {isLoading || loading ? (
+      {isLoading ? (
         <div
           style={{
             width: "100%",
@@ -60,26 +61,25 @@ export const DateList = () => {
           {data.results.map(
             ({ displayId, entityId, temporalCoverage }: any) => {
               const currentScene = scenes[displayId];
-              const isCurrentSceneLoading =
-                currentScene?.stillLoading ||
-                (currentScene && !currentScene.calculated);
-              const isCurrentSceneReady = currentScene?.calculated;
+              console.log({ scenes, displayId });
+              const isCurrentSceneReady = !!currentScene;
               return (
                 <ListItem
+                  disabled={isCurrentSceneReady}
                   key={entityId}
                   onClick={async () => {
-                    if (!currentScene) {
+                    if (!isCurrentSceneReady) {
                       await dispatch(
-                        donwloadScene({
+                        addSceneToRepo({
                           displayId,
                           entityId,
                         })
                       );
                       toast({
-                        title: "Downloading was started",
+                        title: "The scene was added to main repo",
                         position: "bottom-left",
                         description:
-                          "You can go to the home page to check downloading progress",
+                          "You can go to the home page to start downloading",
                         duration: 5000,
                         isClosable: true,
                       });
@@ -87,10 +87,7 @@ export const DateList = () => {
                   }}
                 >
                   {temporalCoverage.startDate.split(" ")[0]}
-                  {isCurrentSceneReady && (
-                    <FontAwesomeIcon icon={faCircleCheck} />
-                  )}
-                  {isCurrentSceneLoading && <Spinner />}
+                  {isCurrentSceneReady && <FontAwesomeIcon icon={faDatabase} />}
                 </ListItem>
               );
             }
@@ -116,13 +113,24 @@ const List = styled.ul<{ wait: boolean }>`
     `}
 `;
 
-const ListItem = styled.li`
+const ListItem = styled.li<{ disabled: boolean }>`
   padding: 8px 16px;
   margin: 0;
-  cursor: pointer;
-  &:hover {
-    background-color: gainsboro;
+  * {
+    margin: 0 4px;
   }
+  ${({ disabled }) =>
+    !disabled
+      ? css`
+          cursor: pointer;
+          &:hover {
+            background-color: gainsboro;
+          }
+        `
+      : css`
+          color: #000069;
+          cursor: default;
+        `}
   display: flex;
   justify-content: center;
   align-items: center;

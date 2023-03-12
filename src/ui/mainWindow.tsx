@@ -13,7 +13,11 @@ import {
   useLocation,
   Location,
 } from "react-router-dom";
-import { setDate, setSceneState } from "../actions/main-actions";
+import {
+  mainActions,
+  setDate,
+  watchScenesState,
+} from "../actions/main-actions";
 import { useAppDispatch } from "../entry-points/app";
 import { DownloadManager } from "./download-manager/download-manager";
 import { checkDates } from "../backend/usgs-api";
@@ -44,13 +48,13 @@ export function useTypedLocation<T extends keyof AppRoutes>() {
 export const MainWindow = () => {
   const dispatch = useAppDispatch();
   useEffect(() => {
-    window.ElectronAPI.on.stateChange((_, { state, displayId }) => {
-      console.log("change state", { state, displayId });
-      dispatch(setSceneState({ state, displayId }));
-    });
+    const interval = setInterval(() => {
+      dispatch(watchScenesState());
+    }, 1000);
     checkDates().then((ld) => {
       dispatch(setDate(ld));
     });
+    return () => clearInterval(interval);
   }, [dispatch]);
   return (
     <div className="main-window">

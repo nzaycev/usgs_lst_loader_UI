@@ -2,6 +2,10 @@ import { app, BrowserWindow, session } from "electron";
 import { ipcMain } from "electron-typescript-ipc";
 import fs from "fs";
 import path from "path";
+import { download } from "electron-dl";
+// import DownloadManager from "electron-download-manager";
+
+// DownloadManager.
 
 import dotenv from "dotenv";
 dotenv.config();
@@ -21,7 +25,7 @@ if (require("electron-squirrel-startup")) {
 import { spawn, exec, execFileSync, execFile } from "child_process";
 import { Api, DownloadProps } from "../tools/ElectronApi";
 // import { checkDates, getDownloadDS, searchScenes } from "../backend/usgs-api";
-import type { ISceneState } from "../actions/main-actions";
+import type { ISceneState, USGSLayerType } from "../actions/main-actions";
 import { FsWatcher } from "../backend/fs-watcher";
 import type { INetworkSettings } from "../ui/network-settings/network-settings-state";
 import { applyProxySettings } from "./proxy-settings";
@@ -78,6 +82,31 @@ const createWindow = async () => {
     return {};
   });
 
+  ipcMain.handle<Api>("download", async (_, sceneId: string) => {
+    const publicPath = path.join(
+      process.env.APP_DEV ? process.cwd() : process.resourcesPath,
+      "public"
+    );
+    const appdataPath = path.join(app.getPath("userData"), "localStorage");
+    const scenePath = path.join(appdataPath, sceneId);
+    const calculationProcessPath = path.join(publicPath, "tasks/main.exe");
+    // const calculationProcess = spawn(calculationProcessPath, ["a", scenePath]);
+    const calculationProcess = exec(
+      `start /wait "calc" "${calculationProcessPath}" a "${scenePath}"`,
+      (...args: any) => {
+        console.log("calculate", scenePath, JSON.stringify(args, null, 2));
+      }
+    );
+    return `"${calculationProcessPath}" a "${scenePath}"`;
+    // calculationProcess.addListener("close", (message) => {
+    //   console.log("exit with message: ", message);
+    //   // sceneState = JSON.parse(fs.readFileSync(indexFilePath).toString());
+    //   // sceneState.calculationPid = undefined;
+    //   // sceneState.calculated = true;
+    //   // fs.writeFileSync(indexFilePath, JSON.stringify(sceneState, null, 2));
+    // });
+  });
+
   ipcMain.handle<Api>(
     "saveNetworkSettings",
     async (_, settings: INetworkSettings) => {
@@ -103,87 +132,90 @@ const createWindow = async () => {
     return fsWatcher.getState();
   });
 
+  /**
+   * remember download url list and may be download immediately
+   */
   ipcMain.handle<Api>(
-    "download",
-    async (_, { displayId, ds }: DownloadProps) => {
-      // TODO: implement threading
+    "addRepo",
+    async (_, { displayId, ds }: DownloadProps, alsoDownload) => {
       const appdataPath = path.join(app.getPath("userData"), "localStorage");
       const scenePath = path.join(appdataPath, displayId);
       if (!fs.existsSync(scenePath)) {
         fs.mkdirSync(scenePath, { recursive: true });
       }
       const indexFilePath = path.join(scenePath, "index.json");
-      let sceneState: ISceneState = {
-        stillLoading: true,
+      const sceneState: ISceneState = {
+        isRepo: true,
         calculation: 0,
-        networkSettingsFilePath: userSettingsPath,
-        donwloadedFiles: {},
+        scenePath,
+        donwloadedFiles: Object.assign(
+          {},
+          ...ds.map((item) => ({
+            [item.layerName]: {
+              url: item.url,
+            },
+          }))
+        ),
         calculated: false,
       };
-      console.log("ds", ds);
-      ds.forEach((dsItem) => {
-        sceneState.donwloadedFiles[dsItem.layerName] = {
-          url: dsItem.url,
-          loaded: false,
-          progress: 0,
-        };
+      fs.writeFileSync(indexFilePath, JSON.stringify(sceneState, null, 2));
+      console.log({ indexFilePath, sceneState });
+    }
+  );
+
+  mainWindow.webContents.session.on(
+    "will-download",
+    (event, item, webContents) => {
+      const fn = item.getFilename().split(".TIF")[0];
+      const [dir, type] = fn.split("_T1_");
+      const sceneId = dir + "_T1";
+      // const sceneState = fsWatcher.getSceneState(sceneId);
+      const appdataPath = path.join(app.getPath("userData"), "localStorage");
+      const scenePath = path.join(appdataPath, sceneId);
+      // 'LC08_L2SP_142021_20220915_20220922_02_T1_QA_PIXEL.tif'
+      const layerPath = path.join(scenePath, item.getFilename());
+      const indexPath = path.join(scenePath, "index.json");
+      if (fs.existsSync(layerPath)) {
+        const index: ISceneState = JSON.parse(
+          fs.readFileSync(indexPath).toString()
+        );
+        const { size } = index.donwloadedFiles[type as USGSLayerType];
+        if (size !== fs.statSync(layerPath).size) {
+          fs.rmSync(layerPath);
+        } else {
+          event.preventDefault();
+          return;
+        }
+      }
+      item.setSavePath(layerPath);
+      const totalSize = item.getTotalBytes();
+      fsWatcher.setState(sceneId, (prev) => ({
+        ...prev,
+        donwloadedFiles: {
+          ...prev.donwloadedFiles,
+          [type]: {
+            ...prev.donwloadedFiles[type as USGSLayerType],
+            size: totalSize,
+          },
+        },
+      }));
+      item.on("updated", (event, state) => {
+        if (state === "interrupted") {
+          console.log("Download is interrupted but can be resumed");
+        } else if (state === "progressing") {
+          if (item.isPaused()) {
+            console.log("Download is paused");
+          } else {
+            // console.log(`progress: ${item.getReceivedBytes() / totalSize}`);
+          }
+        }
       });
-
-      console.log(sceneState);
-      fs.writeFileSync(indexFilePath, JSON.stringify(sceneState, null, 2));
-
-      const publicPath = path.join(
-        process.env.APP_DEV ? process.cwd() : process.resourcesPath,
-        "public"
-      );
-      const downloadingProcessPath = path.join(
-        publicPath,
-        "tasks/download-scene-task.exe"
-      );
-      console.log(process.resourcesPath, publicPath, downloadingProcessPath);
-      console.log(`exec: start "${downloadingProcessPath}" "${scenePath}"`);
-      const downloadingProcess = spawn(downloadingProcessPath, [
-        "a",
-        scenePath,
-      ]);
-      // const downloadingProcess = exec(
-      //   `start /wait "dwnl" "${downloadingProcessPath}" a "${scenePath}"`,
-      //   (...args: any) => {
-      //     console.log("download", scenePath, JSON.stringify(args, null, 2));
-      //   }
-      // );
-      sceneState.downloadPid = downloadingProcess.pid;
-      fs.writeFileSync(indexFilePath, JSON.stringify(sceneState, null, 2));
-      await new Promise<void>((resolve) => {
-        downloadingProcess.addListener("close", (message) => {
-          console.log("exit with message: ", message);
-          sceneState = JSON.parse(fs.readFileSync(indexFilePath).toString());
-          sceneState.downloadPid = undefined;
-          sceneState.stillLoading = false;
-          fs.writeFileSync(indexFilePath, JSON.stringify(sceneState, null, 2));
-          resolve();
-        });
-      });
-
-      const calculationProcessPath = path.join(publicPath, "tasks/main.exe");
-      const calculationProcess = spawn(calculationProcessPath, [
-        "a",
-        scenePath,
-      ]);
-      // const calculationProcess = exec(
-      //   `start /wait "calc" "${calculationProcessPath}" a "${scenePath}"`,
-      //   (...args: any) => {
-      //     console.log("calculate", scenePath, JSON.stringify(args, null, 2));
-      //   }
-      // );
-      sceneState.calculationPid = calculationProcess.pid;
-      fs.writeFileSync(indexFilePath, JSON.stringify(sceneState, null, 2));
-      calculationProcess.addListener("close", (message) => {
-        console.log("exit with message: ", message);
-        sceneState = JSON.parse(fs.readFileSync(indexFilePath).toString());
-        sceneState.calculationPid = undefined;
-        sceneState.calculated = true;
-        fs.writeFileSync(indexFilePath, JSON.stringify(sceneState, null, 2));
+      item.once("done", (event, state) => {
+        if (state === "completed") {
+          console.log("Download successfully");
+        } else {
+          console.log(`Download failed: ${state}`);
+        }
       });
     }
   );
@@ -210,12 +242,12 @@ app.on("ready", createWindow);
 /** window initialization */
 app.on("window-all-closed", async () => {
   // eslint-disable-next-line no-constant-condition
-  while (true) {
-    if (!(await fsWatcher.stillWorking())) {
-      break;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 5000));
-  }
+  // while (true) {
+  //   if (!(await fsWatcher.stillWorking())) {
+  //     break;
+  //   }
+  //   await new Promise((resolve) => setTimeout(resolve, 5000));
+  // }
   app.quit();
 });
 
