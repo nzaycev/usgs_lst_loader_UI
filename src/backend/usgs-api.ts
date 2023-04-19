@@ -118,12 +118,12 @@ const defaultSceneFilter = (
     metadataFilter: {
       filterType: "and",
       childFilters: [
-        {
-          filterType: "value",
-          filterId: satelliteId,
-          value: "8", // LC08
-          operand: "=",
-        },
+        // {
+        //   filterType: "value",
+        //   filterId: satelliteId,
+        //   value: "8", // LC08
+        //   operand: "=",
+        // },
         {
           filterType: "value",
           filterId: collecCatId,

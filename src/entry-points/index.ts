@@ -3,6 +3,24 @@ import { ipcMain } from "electron-typescript-ipc";
 import fs from "fs";
 import path from "path";
 import { download } from "electron-dl";
+import { NsisUpdater } from "electron-updater";
+// Or MacUpdater, AppImageUpdater
+
+export default class AppUpdater {
+  constructor() {
+    const options = {
+      requestHeaders: {
+        // Any request headers to include here
+      },
+      provider: "generic",
+      url: "https://example.com/auto-updates",
+    };
+
+    // const autoUpdater = new NsisUpdater(options);
+    // autoUpdater.addAuthHeader(`Bearer ${token}`)
+    // autoUpdater.checkForUpdatesAndNotify();
+  }
+}
 // import DownloadManager from "electron-download-manager";
 
 // DownloadManager.

@@ -88,6 +88,7 @@ export const DateList = () => {
                 >
                   {temporalCoverage.startDate.split(" ")[0]}
                   {isCurrentSceneReady && <FontAwesomeIcon icon={faDatabase} />}
+                  <Light>{displayId}</Light>
                 </ListItem>
               );
             }
@@ -97,6 +98,11 @@ export const DateList = () => {
     </div>
   );
 };
+
+const Light = styled.span`
+  color: gray;
+  font-size: 12px;
+`;
 
 const List = styled.ul<{ wait: boolean }>`
   list-style: none;
