@@ -108,7 +108,7 @@ const createWindow = async () => {
     );
     const appdataPath = path.join(app.getPath("userData"), "localStorage");
     const scenePath = path.join(appdataPath, sceneId);
-    const calculationProcessPath = path.join(publicPath, "tasks/main.exe");
+    const calculationProcessPath = path.join(publicPath, "tasks/calculation.exe");
     // const calculationProcess = spawn(calculationProcessPath, ["a", scenePath]);
     const calculationProcess = exec(
       `start /wait "calc" "${calculationProcessPath}" a "${scenePath}"`,

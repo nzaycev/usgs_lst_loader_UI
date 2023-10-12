@@ -7,7 +7,7 @@ dataclasses==0.8
 Flask==2.0.3
 Flask-Cors==3.0.10
 Flask-SocketIO==5.2.0
-GDAL @ file:///C:/Program%20Files/USGS_loader/server/GDAL-3.0.4-cp36-cp36m-win_amd64.whl
+GDAL @ file:///.\GDAL-3.0.4-cp36-cp36m-win_amd64.whl
 h11==0.13.0
 idna==3.3
 importlib-metadata==4.8.3

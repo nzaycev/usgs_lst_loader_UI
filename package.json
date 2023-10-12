@@ -8,6 +8,7 @@
     "start": "set APP_DEV=true && electron-forge start",
     "release": "electron-builder",
     "package": "electron-forge package && npm run copy-env-file",
+    "build-python": "pyinstaller .\\src\\backend\\calculation.py --onefile --distpath .\\public\\tasks",
     "build": "electron-builder build --pd out/usgs-lst-loader-win32-x64",
     "copy-env-file": "copy \"./.env\" \"out/usgs-lst-loader-win32-x64\"",
     "make-squirell": "electron-forge make --targets @electron-forge/maker-squirrel",
