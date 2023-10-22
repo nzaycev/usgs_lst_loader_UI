@@ -48,30 +48,32 @@ export const watchScenesState = createAsyncThunk<
   void
 >("scenes/watch", async (_, thunkApi) => {
   const state = await window.ElectronAPI.invoke.watch();
-  console.log("state", state);
   return state;
 });
 
-export const addSceneToRepo = createAsyncThunk<
-  void,
-  { entityId: string; displayId: DisplayId }
->("scenes/download", async (payload, thunkApi) => {
+export const addSceneToRepo = createAsyncThunk<void, { entityId: string; displayId: DisplayId }>("scenes/download", async (payload, thunkApi) => {
   try {
     const ds = await getDownloadDS(payload.entityId);
     console.log({ ds });
     window.ElectronAPI.invoke.addRepo({ ds, ...payload });
-    // window.ElectronAPI.invoke.download({ ds, ...payload });
+    ds.forEach(({ url }) => {
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.target = "_blank";
+      anchor.download = "";
+      anchor.click();
+    });
   } catch (e) {
     console.error(e);
-    thunkApi.rejectWithValue(e);
+    return thunkApi.rejectWithValue(e);
   }
 });
 
-export const downloadScene = createAsyncThunk<string, { displayId: DisplayId }>(
+export const downloadScene = createAsyncThunk<string, { displayId: DisplayId; args: RunArgs }>(
   "scenes/download",
   async (payload, thunkApi) => {
     try {
-      return window.ElectronAPI.invoke.download(payload.displayId);
+      return window.ElectronAPI.invoke.download(payload.displayId, payload.args);
       // return;
     } catch (e) {
       console.error(e);
@@ -85,6 +87,8 @@ type FsActionPayload = {
   size?: number;
   indexContent?: ISceneState;
 };
+
+export type RunArgs = { useQAMask: boolean; emission?: number }
 
 const mainActions = createSlice({
   name: "main",
@@ -203,7 +207,7 @@ const mainActions = createSlice({
       })
       .addCase(watchScenesState.fulfilled, (state, action) => {
         state.loading = false;
-        console.log("scenes", action.payload);
+        // console.log("scenes", action.payload);
         state.scenes = action.payload;
       })
       .addCase(watchScenesState.rejected, (state) => {

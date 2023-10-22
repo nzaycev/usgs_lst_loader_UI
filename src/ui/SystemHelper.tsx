@@ -1,5 +1,5 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import React from "react";
+import React, { useMemo } from "react";
 
 import {
   faRefresh,
@@ -7,14 +7,31 @@ import {
   faTimes,
   faHouseChimney,
   faWifiStrong,
+  faCircleDown,
 } from "@fortawesome/free-solid-svg-icons";
 import { useTypedNavigate } from "./mainWindow";
 import { useDispatch } from "react-redux";
 import { networkSettingsSlice } from "./network-settings/network-settings-state";
 import styled from "styled-components";
+import { useAppSelector } from "../entry-points/app";
 // import { ElectonAPI } from "../tools/ElectronApi";
 
 // const { ipcRenderer } = window.require('electron')
+
+const useIsLoading = () => {
+  const scenes = useAppSelector((state) => state.main.scenes);
+  return useMemo(() => {
+    for (const i in scenes) {
+      const scene = scenes[i]
+      for (const fileId in scene.donwloadedFiles) {
+        if (scene.donwloadedFiles[fileId as keyof typeof scene.donwloadedFiles].progress !== 1) {
+          return true
+        }
+      }
+    }
+    return false
+  }, [scenes])
+}
 
 export const SystemHelper = () => {
   const navigate = useTypedNavigate();
@@ -50,6 +67,12 @@ export const SystemHelper = () => {
         <FontAwesomeIcon icon={faWifiStrong} />
       </span>
       <DragArea style={{ flex: 1, height: 0 }}></DragArea>
+      <span
+        title="Loading State"
+        style={{cursor: 'default'}}
+      >
+        <FontAwesomeIcon icon={faCircleDown} style={{color: useIsLoading() ? 'green' : 'inherit'}} />
+      </span>
       <span title="Home" onClick={() => navigate("/")}>
         <FontAwesomeIcon icon={faHouseChimney} />
       </span>

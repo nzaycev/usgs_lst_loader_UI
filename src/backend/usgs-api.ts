@@ -240,6 +240,9 @@ export const getDownloadDS = async (entityId: string) => {
 
       moreDownloadUrls["available"].forEach((download: any) => {
         console.log("test", download["displayId"], downloads);
+        if (!requiredLayers.find(x => download["displayId"].includes(x))) {
+          return
+        }
         downloadUrls.push({
           id: download["downloadId"],
           url: download["url"],

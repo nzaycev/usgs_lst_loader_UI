@@ -16,7 +16,8 @@ export const SceneListItem = styled.li`
 `
 
 export const AggregatedView = styled.div`
-    display: flex;
+    display: grid;
+    grid-template-columns: auto 120px 40px;
     padding: 0 8px;
     height: 40px;
     align-items: center;
@@ -39,7 +40,11 @@ export const ExpandTrigger = styled(FontAwesomeIcon).attrs({icon: faChevronDown}
 
 export const LabelWithProgress = styled.div`
     position: relative;
+    padding: 4px;
     display: flex;
+    text-align: center;
+    font-size: 12px;
+    white-space: nowrap;
 `
 
 export const ProgressBar = styled.div`
@@ -53,8 +58,6 @@ export const ProgressBar = styled.div`
 
 export const DetailsView = styled.div`
     width: 100%;
-    display: grid;
-    grid-template-columns: 50% 50%;
 `
 
 export const AddButton = styled.div`

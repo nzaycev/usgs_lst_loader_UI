@@ -1,4 +1,4 @@
-import { configureStore } from "@reduxjs/toolkit";
+import { configureStore, createAsyncThunk } from "@reduxjs/toolkit";
 import React from "react";
 import ReactDOM from "react-dom";
 import { MainWindow } from "../ui/mainWindow";
@@ -38,6 +38,7 @@ function render() {
 }
 
 export const store = configureStore({
+  devTools: false,
   middleware(gdf) {
     return gdf({
       serializableCheck: false,
@@ -57,5 +58,10 @@ export type AppDispatch = typeof store.dispatch;
 
 export const useAppDispatch: () => AppDispatch = useDispatch;
 export const useAppSelector: TypedUseSelectorHook<RootState> = useSelector;
+
+type ThunkApiConfig = {
+  state: RootState
+  dispatch: AppDispatch
+}
 
 render();

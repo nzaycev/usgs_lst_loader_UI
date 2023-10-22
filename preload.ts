@@ -13,8 +13,8 @@ const api: Api = {
     async checkLastDate() {
       return ipcRenderer.invoke<Api>("checkLastDate");
     },
-    async download(args) {
-      return ipcRenderer.invoke<Api>("download", args);
+    async download(...args) {
+      return ipcRenderer.invoke<Api>("download", ...args);
     },
     async saveNetworkSettings(settings) {
       return ipcRenderer.invoke<Api>("saveNetworkSettings", settings);

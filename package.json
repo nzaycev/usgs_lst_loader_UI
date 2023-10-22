@@ -8,7 +8,7 @@
     "start": "set APP_DEV=true && electron-forge start",
     "release": "electron-builder",
     "package": "electron-forge package && npm run copy-env-file",
-    "build-python": "pyinstaller .\\src\\backend\\calculation.py --onefile --distpath .\\public\\tasks",
+    "build-python": "pyinstaller .\\src\\backend\\calculation\\calculation.py --onefile --distpath .\\public\\tasks --add-data .\\pyenv\\Lib\\site-packages\\grapheme\\data\\grapheme_break_property.json;grapheme\\data",
     "build": "electron-builder build --pd out/usgs-lst-loader-win32-x64",
     "copy-env-file": "copy \"./.env\" \"out/usgs-lst-loader-win32-x64\"",
     "make-squirell": "electron-forge make --targets @electron-forge/maker-squirrel",
@@ -122,7 +122,7 @@
     "@fortawesome/fontawesome-svg-core": "6.1.1",
     "@fortawesome/free-solid-svg-icons": "6.1.1",
     "@fortawesome/react-fontawesome": "0.1.18",
-    "@reduxjs/toolkit": "^1.8.5",
+    "@reduxjs/toolkit": "1.9.7",
     "@turf/turf": "6.5.0",
     "7zip-bin": "5.2.0",
     "axios": "0.27.2",
@@ -151,6 +151,7 @@
     "redux-logger": "^3.0.6",
     "socket.io-client": "4.4.1",
     "styled-components": "5.3.5",
-    "throttle-debounce": "^5.0.0"
+    "throttle-debounce": "^5.0.0",
+    "util": "^0.12.5"
   }
 }

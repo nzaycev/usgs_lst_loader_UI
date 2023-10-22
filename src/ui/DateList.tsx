@@ -27,7 +27,6 @@ export const DateList = () => {
 
   const { scenes, wait } = useAppSelector((state) => state.main);
 
-  console.log("aaa", { data, scenes, isLoading });
 
   if (error) {
     return (
@@ -61,7 +60,6 @@ export const DateList = () => {
           {data.results.map(
             ({ displayId, entityId, temporalCoverage }: any) => {
               const currentScene = scenes[displayId];
-              console.log({ scenes, displayId });
               const isCurrentSceneReady = !!currentScene;
               return (
                 <ListItem
@@ -74,7 +72,7 @@ export const DateList = () => {
                           displayId,
                           entityId,
                         })
-                      );
+                      ).unwrap();
                       toast({
                         title: "The scene was added to main repo",
                         position: "bottom-left",
@@ -122,6 +120,7 @@ const List = styled.ul<{ wait: boolean }>`
 const ListItem = styled.li<{ disabled: boolean }>`
   padding: 8px 16px;
   margin: 0;
+  white-space: nowrap;
   * {
     margin: 0 4px;
   }

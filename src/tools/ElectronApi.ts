@@ -2,6 +2,7 @@ import { GetApiType } from "electron-typescript-ipc";
 import type {
   DisplayId,
   ISceneState,
+  RunArgs,
   USGSLayerType,
 } from "../actions/main-actions";
 import { SettingsChema } from "../backend/settings-store";
@@ -37,7 +38,7 @@ export type RequestApi = {
   openExplorer: (str: string) => Promise<void>;
   watch: () => Promise<Partial<Record<DisplayId, ISceneState>>>;
   checkLastDate: () => Promise<string>;
-  download: (sceneId: string) => Promise<string>;
+  download: (sceneId: string, args: RunArgs) => Promise<string>;
   addRepo: (arg: DownloadProps, alsoDownload?: boolean) => Promise<void>;
   getStoreValue: (key: keyof SettingsChema | string) => Promise<unknown>;
   setStoreValue: (

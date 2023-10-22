@@ -2,6 +2,7 @@ import { app, BrowserWindow, session } from "electron";
 import { ipcMain } from "electron-typescript-ipc";
 import fs from "fs";
 import path from "path";
+import util from 'util'
 import { download } from "electron-dl";
 import { NsisUpdater } from "electron-updater";
 // Or MacUpdater, AppImageUpdater
@@ -43,11 +44,12 @@ if (require("electron-squirrel-startup")) {
 import { spawn, exec, execFileSync, execFile } from "child_process";
 import { Api, DownloadProps } from "../tools/ElectronApi";
 // import { checkDates, getDownloadDS, searchScenes } from "../backend/usgs-api";
-import type { ISceneState, USGSLayerType } from "../actions/main-actions";
+import type { ISceneState, RunArgs, USGSLayerType } from "../actions/main-actions";
 import { FsWatcher } from "../backend/fs-watcher";
 import type { INetworkSettings } from "../ui/network-settings/network-settings-state";
 import { applyProxySettings } from "./proxy-settings";
 import { SettingsChema, store } from "../backend/settings-store";
+import { isNumber } from "lodash";
 
 const fsWatcher = new FsWatcher(app);
 
@@ -101,7 +103,7 @@ const createWindow = async () => {
     return {};
   });
 
-  ipcMain.handle<Api>("download", async (_, sceneId: string) => {
+  ipcMain.handle<Api>("download", async (_, sceneId: string, args: RunArgs) => {
     const publicPath = path.join(
       process.env.APP_DEV ? process.cwd() : process.resourcesPath,
       "public"
@@ -110,20 +112,28 @@ const createWindow = async () => {
     const scenePath = path.join(appdataPath, sceneId);
     const calculationProcessPath = path.join(publicPath, "tasks/calculation.exe");
     // const calculationProcess = spawn(calculationProcessPath, ["a", scenePath]);
+
+    const runArgs: string[] = ['--path', `"${scenePath}"`]
+    if (args.useQAMask) runArgs.push('--useQAMask')
+    if (isNumber(args.emission)) runArgs.push('--emission', args.emission.toString())
+    
+    
+    // const _execFile = util.promisify(execFile);
+    // const calcProcess = execFile(calculationProcessPath, runArgs, (err, stdout, stderr) => {
+    //   console.log({err, stdout, stderr})
+    // })
+
+    // console.log({calcProcess, })
+
     const calculationProcess = exec(
-      `start /wait "calc" "${calculationProcessPath}" a "${scenePath}"`,
+      `start /wait "Calculation of ${sceneId}" "${calculationProcessPath}" ${runArgs.join(' ')}`,
       (...args: any) => {
-        console.log("calculate", scenePath, JSON.stringify(args, null, 2));
+        console.log("Calculate", scenePath, JSON.stringify(args, null, 2));
       }
     );
-    return `"${calculationProcessPath}" a "${scenePath}"`;
-    // calculationProcess.addListener("close", (message) => {
-    //   console.log("exit with message: ", message);
-    //   // sceneState = JSON.parse(fs.readFileSync(indexFilePath).toString());
-    //   // sceneState.calculationPid = undefined;
-    //   // sceneState.calculated = true;
-    //   // fs.writeFileSync(indexFilePath, JSON.stringify(sceneState, null, 2));
-    // });
+
+    return `"${calculationProcessPath}" ${runArgs.join(' ')}`;
+
   });
 
   ipcMain.handle<Api>(
