@@ -4,6 +4,7 @@ import {
   faCheckCircle,
   faDownload,
   faFolderOpen,
+  faPlay,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { isFulfilled } from "@reduxjs/toolkit";
@@ -16,6 +17,7 @@ import {
   DisplayId,
   downloadScene,
   ISceneState,
+  OutLayer,
   RunArgs,
   USGSLayerType,
   watchScenesState,
@@ -68,6 +70,24 @@ const SceneStateView = ({
     );
   const isLoadPossible = state.isRepo;
 
+  const mapSceneIdToString = (sceneId: string) => {
+    switch (sceneId) {
+      case '142021':
+        return <>Krasnoyarsk<sub>(142)</sub></>
+      case '143021':
+        return <>Krasnoyarsk<sub>(143)</sub></>
+      default:
+        return <><small>Zone:</small> {sceneId}</>
+    }
+  }
+
+  const parseDisplayId = (displayId: string) => {
+    const segments = displayId.split('_')
+    const landsatId = segments[0] === 'LC08' ? 8 : 9
+    const date = new Date(parseInt(segments[3].slice(0, 4)), parseInt(segments[3].slice(4, 6)) - 1, parseInt(segments[3].slice(6)))
+    return <>{mapSceneIdToString(segments[2])} | <ins>{date.toLocaleDateString()}</ins> | <small>Landsat:</small> <ins>{landsatId}</ins></>
+  }
+
   return (
     <SceneListItem>
       <AggregatedView>
@@ -78,7 +98,7 @@ const SceneStateView = ({
               setExpanded((v) => !v);
             }}
           />
-          <span style={{ flex: 1 }}>{displayId}</span>
+          <span style={{ flex: 1 }}>{parseDisplayId(displayId)}</span>
         </Flex>
         <ProgressView progress={progress}>
           <span style={{ width: '100%' }}>{!isLoadRequired ? 'ready' : `downloading ${Math.round(progress * 100)}%`}</span>
@@ -101,7 +121,7 @@ const SceneStateView = ({
         <Flex alignItems={'center'} justifyContent={'center'}>
           {!isLoadRequired && isLoadPossible && !state.calculated && (
             <ClickableIcon
-              icon={faCalculator}
+              icon={faPlay}
               onClick={async () => {
                 if (!isLoadPossible) {
                   return;
@@ -167,18 +187,27 @@ const SceneStateView = ({
 type OnStartFunction = (args: RunArgs) => void
 type OpenDialogFunction = (args: { onStart: OnStartFunction }) => void
 
+const initialFormState: RunArgs = {
+  useQAMask: true, emission: undefined, outLayers: {
+    [OutLayer.LST]: true,
+    [OutLayer.BT]: false,
+    [OutLayer.Emission]: false,
+    [OutLayer.NDVI]: false,
+    [OutLayer.Radiance]: false,
+    [OutLayer.SurfRad]: false,
+    [OutLayer.VegProp]: false
+  }
+}
+
 const ConfirmDialog = ({ children }: { children: (props: { ask: OpenDialogFunction }) => ReactNode }) => {
   const { isOpen, onOpen, onClose } = useDisclosure()
   const cancelRef = React.useRef()
 
-  const [formState, setFormState] = useState<RunArgs>({
-    useQAMask: true,
-    emission: undefined,
-  })
+  const [formState, setFormState] = useState<RunArgs>(initialFormState)
   const [onStart, setOnStart] = useState<OnStartFunction>(noop)
 
   const openNewDialog: OpenDialogFunction = ({ onStart }) => {
-    setFormState({ useQAMask: true, emission: undefined })
+    setFormState(initialFormState)
     onOpen()
     setOnStart(() => onStart)
   }
@@ -212,6 +241,41 @@ const ConfirmDialog = ({ children }: { children: (props: { ask: OpenDialogFuncti
                 </FormLabel>
                 <Input placeholder="default" value={formState.emission} type="number" size={"xs"}
                   onChange={e => setFormState(prev => ({ ...prev, emission: e.target.value !== '' ? parseFloat(e.target.value) : undefined }))} />
+              </FormControl>
+              <FormLabel>
+                Layers to be saved on finish:
+              </FormLabel>
+              <FormControl as={SimpleGrid} columns={{ base: 4 }} alignItems={'center'} spacing={1}>
+                <FormLabel color='gray.400' margin={0}>
+                  LST:
+                </FormLabel>
+                <Switch size={"sm"} isChecked={formState.outLayers.LST} onChange={() => setFormState(prev => ({ ...prev, outLayers: { ...prev.outLayers, LST: !prev.outLayers.LST } }))} />
+                <FormLabel color='gray.400' margin={0}>
+                  NDVI:
+                </FormLabel>
+                <Switch size={"sm"} isChecked={formState.outLayers.NDVI} onChange={() => setFormState(prev => ({ ...prev, outLayers: { ...prev.outLayers, NDVI: !prev.outLayers.NDVI } }))} />
+                <FormLabel color='gray.400' margin={0}>
+                  Emission:
+                </FormLabel>
+                <Switch size={"sm"} isChecked={formState.outLayers.Emission} onChange={() => setFormState(prev => ({ ...prev, outLayers: { ...prev.outLayers, Emission: !prev.outLayers.Emission } }))} />
+                <FormLabel color='gray.400' margin={0}>
+                  BT:
+                </FormLabel>
+                <Switch size={"sm"} isChecked={formState.outLayers.BT} onChange={() => setFormState(prev => ({ ...prev, outLayers: { ...prev.outLayers, BT: !prev.outLayers.BT } }))} />
+                <FormLabel color='gray.400' margin={0}>
+                  VegProp:
+                </FormLabel>
+                <Switch size={"sm"} isChecked={formState.outLayers.VegProp} onChange={() => setFormState(prev => ({ ...prev, outLayers: { ...prev.outLayers, VegProp: !prev.outLayers.VegProp } }))} />
+                <FormLabel color='gray.400' margin={0}>
+                  Radiance:
+                </FormLabel>
+                <Switch size={"sm"} isChecked={formState.outLayers.Radiance} onChange={() => setFormState(prev => ({ ...prev, outLayers: { ...prev.outLayers, Radiance: !prev.outLayers.Radiance } }))} />
+                <FormLabel color='gray.400' margin={0}>
+                  SurfRad:
+                </FormLabel>
+                <Switch size={"sm"} isChecked={formState.outLayers.SurfRad} onChange={() => setFormState(prev => ({ ...prev, outLayers: { ...prev.outLayers, SurfRad: !prev.outLayers.SurfRad } }))} />
+                <Link onClick={() => { setFormState(prev => ({ ...prev, outLayers: { BT: true, Emission: true, LST: true, NDVI: true, Radiance: true, SurfRad: true, VegProp: true } })) }}>select all</Link>
+                <Link onClick={() => { setFormState(prev => ({ ...prev, outLayers: { BT: false, Emission: false, LST: false, NDVI: false, Radiance: false, SurfRad: false, VegProp: false } })) }}>deselect all</Link>
               </FormControl>
             </AlertDialogBody>
 
@@ -318,3 +382,8 @@ const ClickableIcon = styled(FontAwesomeIcon) <{ disable?: boolean }>`
       }
     `}
 `;
+
+const Link = styled.a`
+  text-decoration: underline;
+  cursor: pointer;
+`

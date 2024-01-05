@@ -88,7 +88,18 @@ type FsActionPayload = {
   indexContent?: ISceneState;
 };
 
-export type RunArgs = { useQAMask: boolean; emission?: number }
+
+export enum OutLayer {
+  BT = 'BT',
+  Emission = 'Emission',
+  LST = 'LST',
+  NDVI = 'NDVI',
+  Radiance = 'Radiance',
+  SurfRad = 'SurfRad',
+  VegProp = 'VegProp'
+}
+
+export type RunArgs = { useQAMask: boolean; emission?: number; outLayers: Record<OutLayer, boolean> }
 
 const mainActions = createSlice({
   name: "main",

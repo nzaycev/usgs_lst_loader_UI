@@ -44,7 +44,7 @@ if (require("electron-squirrel-startup")) {
 import { spawn, exec, execFileSync, execFile } from "child_process";
 import { Api, DownloadProps } from "../tools/ElectronApi";
 // import { checkDates, getDownloadDS, searchScenes } from "../backend/usgs-api";
-import type { ISceneState, RunArgs, USGSLayerType } from "../actions/main-actions";
+import { OutLayer, type ISceneState, type RunArgs, type USGSLayerType } from "../actions/main-actions";
 import { FsWatcher } from "../backend/fs-watcher";
 import type { INetworkSettings } from "../ui/network-settings/network-settings-state";
 import { applyProxySettings } from "./proxy-settings";
@@ -116,8 +116,10 @@ const createWindow = async () => {
     const runArgs: string[] = ['--path', `"${scenePath}"`]
     if (args.useQAMask) runArgs.push('--useQAMask')
     if (isNumber(args.emission)) runArgs.push('--emission', args.emission.toString())
-    
-    
+    Object.entries(args.outLayers).forEach(([outLayerKey, required]) => {
+      if (required) runArgs.push(`--save${outLayerKey}`)
+    })
+
     // const _execFile = util.promisify(execFile);
     // const calcProcess = execFile(calculationProcessPath, runArgs, (err, stdout, stderr) => {
     //   console.log({err, stdout, stderr})

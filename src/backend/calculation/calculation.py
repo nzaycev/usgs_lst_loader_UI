@@ -27,6 +27,13 @@ parser=argparse.ArgumentParser(
 parser.add_argument('--path', type=str, help='location of downloaded bands', required=True)
 parser.add_argument('--useQAMask', type=bool, default=False, help='if enable, the layer will be clipped by QA_BAND mask', nargs="?", required=False, const=True)
 parser.add_argument('--emission', type=float, help='use const emission value through the map', required=False)
+parser.add_argument('--saveBT', type=bool, help='save BT', nargs="?", required=False, const=True)
+parser.add_argument('--saveEmission', type=bool, help='save emission', nargs="?", required=False, const=True)
+parser.add_argument('--saveLST', type=bool, help='save LST', nargs="?", required=False, const=True)
+parser.add_argument('--saveNDVI', type=bool, help='save NDVI', nargs="?", required=False, const=True)
+parser.add_argument('--saveRadiance', type=bool, help='save Radiance', nargs="?", required=False, const=True)
+parser.add_argument('--saveSurfRad', type=bool, help='save SurfRad', nargs="?", required=False, const=True)
+parser.add_argument('--saveVegProp', type=bool, help='save VegProp', nargs="?", required=False, const=True)
 
 args=parser.parse_args()
 
@@ -79,7 +86,8 @@ def calcAllLST():
         def doWithProgress(callback, name):
             result = callback()
             bar()
-            layers.append({"band": result if name != "NDVI" else result[0], "name": name})
+            if vars(args).get('save' + name):
+                layers.append({"band": result if name != "NDVI" else result[0], "name": name})
             return result
 
         if args.emission is not None:
@@ -99,7 +107,6 @@ def calcAllLST():
         print('Applying QA mask as the --useQAMask flag was provided')
         qa_band = getBand(Band.BQA)
         _lst = numpy.where(qa_band == 21824, _lst, numpy.nan)
-
 
     with alive_bar(len(layers), title='Saving') as bar:     
         def saveWithProgress(band, name):
@@ -128,3 +135,5 @@ if __name__ == "__main__":
     #     pass
     print("Start calculation with args", args)
     calcAllLST()
+    print("Calculation has been succesfully finished", args)
+    time.sleep(2)

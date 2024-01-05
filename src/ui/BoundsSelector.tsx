@@ -16,12 +16,12 @@ const polygonData: any = (
   features:
     startCoordinates && endCoordinates
       ? [
-          {
-            type: "Feature",
-            geometry: bboxPolygon([...startCoordinates, ...endCoordinates])
-              .geometry,
-          },
-        ]
+        {
+          type: "Feature",
+          geometry: bboxPolygon([...startCoordinates, ...endCoordinates])
+            .geometry,
+        },
+      ]
       : [],
 });
 
@@ -52,6 +52,7 @@ export const BoundsSelector = () => {
           console.log("move");
           if (!readySelection && selectionCoordinates?.start) {
             // const data = mapRef.current.getData()
+            mapRef.current
             mapRef.current.setData(
               polygonData(selectionCoordinates.start, [
                 e.lngLat.lng,
@@ -82,9 +83,24 @@ export const BoundsSelector = () => {
         }}
       />
       <Tip>
-        {!readySelection ? (
-          "Поставьте 2 точки на карте"
-        ) : (
+        {!readySelection ? <div>
+          <p>Поставьте 2 точки на карте</p>
+          <p>или{' '}
+            <a href='#'
+              onClick={(e) => {
+                e.preventDefault()
+                navigate("/date_list", {
+                  state: {
+                    start: [mapRef.current.getBounds()._ne.lng, mapRef.current.getBounds()._ne.lat],
+                    end: [mapRef.current.getBounds()._sw.lng, mapRef.current.getBounds()._sw.lat],
+                  }
+                });
+              }}
+            >
+              используйте границы карты
+            </a>
+          </p>
+        </div> : (
           <>
             <Button
               onClick={() => {
@@ -96,11 +112,12 @@ export const BoundsSelector = () => {
             </Button>
             <Button
               onClick={() => {
-                navigate("/date_list", {state: selectionCoordinates});
+                navigate("/date_list", { state: selectionCoordinates });
               }}
             >
               Далее
             </Button>
+
           </>
         )}
       </Tip>
@@ -118,6 +135,10 @@ const Tip = styled.div`
   align-items: center;
   justify-content: center;
   padding-bottom: 20px;
+  text-align: center;
+  a {
+    text-decoration: underline;
+  }
 `;
 
 const Button = styled.button`

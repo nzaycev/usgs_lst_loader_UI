@@ -58,7 +58,7 @@ export const DateList = () => {
       ) : (
         <List wait={wait}>
           {data.results.map(
-            ({ displayId, entityId, temporalCoverage }: any) => {
+            ({ displayId, entityId, temporalCoverage, browse }: any) => {
               const currentScene = scenes[displayId];
               const isCurrentSceneReady = !!currentScene;
               return (
@@ -87,6 +87,8 @@ export const DateList = () => {
                   {temporalCoverage.startDate.split(" ")[0]}
                   {isCurrentSceneReady && <FontAwesomeIcon icon={faDatabase} />}
                   <Light>{displayId}</Light>
+                  {/* uncomment when virtualized */}
+                  {/* <img src={browse[0].thumbnailPath}/> */}
                 </ListItem>
               );
             }

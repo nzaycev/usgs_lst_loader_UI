@@ -17,9 +17,9 @@ export const MapContainer = React.forwardRef<
   }
 >((props, ref = React.createRef()) => {
   const mapContainer = useRef(null);
-  const [lng, setLng] = useState(93);
-  const [lat, setLat] = useState(56);
-  const [zoom, setZoom] = useState(8);
+  const [lng, setLng] = useState(92.9);
+  const [lat, setLat] = useState(56.05);
+  const [zoom, setZoom] = useState(10);
 
   const map = useRef(null);
 
@@ -34,6 +34,7 @@ export const MapContainer = React.forwardRef<
     ref,
     () => ({
       setData: (data: any) => setMapData(data),
+      getBounds: () => map.current.getBounds()
     }),
     []
   );

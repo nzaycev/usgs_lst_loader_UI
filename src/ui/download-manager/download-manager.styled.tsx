@@ -6,7 +6,7 @@ export const SceneList = styled.ul`
     list-style: none;
     width: 100%;
     padding: 60px 24px 40px 24px;
-    margin: 0
+    margin: 0;
 `
 
 export const SceneListItem = styled.li`
