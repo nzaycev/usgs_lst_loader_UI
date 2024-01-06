@@ -8,9 +8,21 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faCircleCheck,
   faDatabase,
+  faSearch,
   faStore,
+  faTimesCircle,
 } from "@fortawesome/free-solid-svg-icons";
-import { Code, Spinner, useToast } from "@chakra-ui/react";
+import {
+  Code,
+  Flex,
+  Input,
+  InputGroup,
+  InputLeftElement,
+  InputRightElement,
+  Spinner,
+  useToast,
+} from "@chakra-ui/react";
+import { useHelperSearch } from "./SystemHelper";
 
 export const DateList = () => {
   const { state: spatial } = useTypedLocation<"/date_list">();
@@ -27,6 +39,14 @@ export const DateList = () => {
 
   const { scenes, wait } = useAppSelector((state) => state.main);
 
+  const { toggle, value } = useHelperSearch();
+
+  useEffect(() => {
+    toggle(!isLoading);
+    return () => {
+      toggle(false);
+    };
+  }, [isLoading]);
 
   if (error) {
     return (
@@ -57,8 +77,9 @@ export const DateList = () => {
         </div>
       ) : (
         <List wait={wait}>
-          {data.results.map(
-            ({ displayId, entityId, temporalCoverage, browse }: any) => {
+          {data.results
+            .filter((x) => !value || x.displayId.includes(value))
+            .map(({ displayId, entityId, temporalCoverage, browse }: any) => {
               const currentScene = scenes[displayId];
               const isCurrentSceneReady = !!currentScene;
               return (
@@ -91,8 +112,7 @@ export const DateList = () => {
                   {/* <img src={browse[0].thumbnailPath}/> */}
                 </ListItem>
               );
-            }
-          )}
+            })}
         </List>
       )}
     </div>

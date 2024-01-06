@@ -34,6 +34,8 @@ interface IMainState {
   lastAvailableDate?: Date;
   scenes: Partial<Record<DisplayId, ISceneState>>;
   authorized: boolean;
+  searchValue: string;
+  searchEnabled: boolean;
 }
 
 const initialState: IMainState = {
@@ -41,6 +43,8 @@ const initialState: IMainState = {
   wait: false,
   scenes: {},
   authorized: false,
+  searchValue: "",
+  searchEnabled: false,
 };
 
 export const watchScenesState = createAsyncThunk<
@@ -51,7 +55,10 @@ export const watchScenesState = createAsyncThunk<
   return state;
 });
 
-export const addSceneToRepo = createAsyncThunk<void, { entityId: string; displayId: DisplayId }>("scenes/download", async (payload, thunkApi) => {
+export const addSceneToRepo = createAsyncThunk<
+  void,
+  { entityId: string; displayId: DisplayId }
+>("scenes/download", async (payload, thunkApi) => {
   try {
     const ds = await getDownloadDS(payload.entityId);
     console.log({ ds });
@@ -69,18 +76,18 @@ export const addSceneToRepo = createAsyncThunk<void, { entityId: string; display
   }
 });
 
-export const downloadScene = createAsyncThunk<string, { displayId: DisplayId; args: RunArgs }>(
-  "scenes/download",
-  async (payload, thunkApi) => {
-    try {
-      return window.ElectronAPI.invoke.download(payload.displayId, payload.args);
-      // return;
-    } catch (e) {
-      console.error(e);
-      thunkApi.rejectWithValue(e);
-    }
+export const downloadScene = createAsyncThunk<
+  string,
+  { displayId: DisplayId; args: RunArgs }
+>("scenes/download", async (payload, thunkApi) => {
+  try {
+    return window.ElectronAPI.invoke.download(payload.displayId, payload.args);
+    // return;
+  } catch (e) {
+    console.error(e);
+    thunkApi.rejectWithValue(e);
   }
-);
+});
 
 type FsActionPayload = {
   parsedPath: ParsedPath;
@@ -88,18 +95,23 @@ type FsActionPayload = {
   indexContent?: ISceneState;
 };
 
-
 export enum OutLayer {
-  BT = 'BT',
-  Emission = 'Emission',
-  LST = 'LST',
-  NDVI = 'NDVI',
-  Radiance = 'Radiance',
-  SurfRad = 'SurfRad',
-  VegProp = 'VegProp'
+  BT = "BT",
+  Emission = "Emission",
+  LST = "LST",
+  NDVI = "NDVI",
+  Radiance = "Radiance",
+  SurfRad = "SurfRad",
+  VegProp = "VegProp",
 }
 
-export type RunArgs = { useQAMask: boolean; emission?: number; outLayers: Record<OutLayer, boolean> }
+export type RunArgs = {
+  useQAMask: boolean;
+  emission?: number;
+  outLayers: Record<OutLayer, boolean>;
+  saveDirectory?: string
+  layerNamePattern?: string
+};
 
 const mainActions = createSlice({
   name: "main",
@@ -107,6 +119,12 @@ const mainActions = createSlice({
   reducers: {
     getAccess(state) {
       state.authorized = true;
+    },
+    toggleSearch(state, action: PayloadAction<boolean>) {
+      state.searchEnabled = action.payload;
+    },
+    setSearch(state, action: PayloadAction<string>) {
+      state.searchValue = action.payload;
     },
     setDate(state, action: PayloadAction<string>) {
       state.lastAvailableDate = new Date(action.payload);

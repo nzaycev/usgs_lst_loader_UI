@@ -25,6 +25,8 @@ parser=argparse.ArgumentParser(
     description='''Calculation of LST''')
 
 parser.add_argument('--path', type=str, help='location of downloaded bands', required=True)
+parser.add_argument('--out', type=str, help='location of calculated layers', required=False, default="./out_{date}-{args}")
+parser.add_argument('--layerPattern', type=str, help='pattern of calculated layer', required=False, default="{name}")
 parser.add_argument('--useQAMask', type=bool, default=False, help='if enable, the layer will be clipped by QA_BAND mask', nargs="?", required=False, const=True)
 parser.add_argument('--emission', type=float, help='use const emission value through the map', required=False)
 parser.add_argument('--saveBT', type=bool, help='save BT', nargs="?", required=False, const=True)
@@ -42,9 +44,9 @@ if args.useQAMask:
     flags.append("withQAMask")
 if args.emission:
     flags.append("emission-{}".format(args.emission))
-outDirName = "out_{0}-{1}".format(
-    datetime.strftime(datetime.now(), "%Y-%m-%d_%H-%M__%S"),
-    "_".join(flags)
+outDirName = args.out.format(
+    date=datetime.strftime(datetime.now(), "%Y-%m-%d_%H-%M__%S"),
+    args="_".join(flags),
 ) 
 
 def applyScaleFactor(band, scale):
@@ -53,7 +55,9 @@ def applyScaleFactor(band, scale):
 def calcAllLST():
     dir = args.path
     pathTemplate = dir + '/' + dir.split('\\')[-1] + '_{0}.TIF'
-    outTemplate = dir + '/' + outDirName + '/{0}.TIF'
+    sceneId = dir.split('\\')[-1]
+    date = sceneId.split('_')[3]
+    outTemplate = dir + '/' + outDirName + '/{0}.TIF' if str.startswith(outDirName, './') else outDirName + '/{0}.TIF'
     emit = emitToFile
 
     logger
@@ -114,7 +118,7 @@ def calcAllLST():
             bar()
         
         for layer in layers:
-            saveWithProgress(layer["band"], layer["name"])
+            saveWithProgress(layer["band"], args.layerPattern.format(name=layer["name"], date=date))
 
 def emitToFile(x):
     fr = open('index.json', 'r')
@@ -130,7 +134,8 @@ if __name__ == "__main__":
     os.chdir(args.path)
 
     # try:
-    os.mkdir(outDirName)
+    if not os.path.isdir(outDirName):
+        os.mkdir(outDirName)
     # except:
     #     pass
     print("Start calculation with args", args)

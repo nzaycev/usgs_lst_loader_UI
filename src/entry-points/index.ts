@@ -2,7 +2,7 @@ import { app, BrowserWindow, session } from "electron";
 import { ipcMain } from "electron-typescript-ipc";
 import fs from "fs";
 import path from "path";
-import util from 'util'
+import util from "util";
 import { download } from "electron-dl";
 import { NsisUpdater } from "electron-updater";
 // Or MacUpdater, AppImageUpdater
@@ -44,7 +44,12 @@ if (require("electron-squirrel-startup")) {
 import { spawn, exec, execFileSync, execFile } from "child_process";
 import { Api, DownloadProps } from "../tools/ElectronApi";
 // import { checkDates, getDownloadDS, searchScenes } from "../backend/usgs-api";
-import { OutLayer, type ISceneState, type RunArgs, type USGSLayerType } from "../actions/main-actions";
+import {
+  OutLayer,
+  type ISceneState,
+  type RunArgs,
+  type USGSLayerType,
+} from "../actions/main-actions";
 import { FsWatcher } from "../backend/fs-watcher";
 import type { INetworkSettings } from "../ui/network-settings/network-settings-state";
 import { applyProxySettings } from "./proxy-settings";
@@ -110,15 +115,21 @@ const createWindow = async () => {
     );
     const appdataPath = path.join(app.getPath("userData"), "localStorage");
     const scenePath = path.join(appdataPath, sceneId);
-    const calculationProcessPath = path.join(publicPath, "tasks/calculation.exe");
+    const calculationProcessPath = path.join(
+      publicPath,
+      "tasks/calculation.exe"
+    );
     // const calculationProcess = spawn(calculationProcessPath, ["a", scenePath]);
 
-    const runArgs: string[] = ['--path', `"${scenePath}"`]
-    if (args.useQAMask) runArgs.push('--useQAMask')
-    if (isNumber(args.emission)) runArgs.push('--emission', args.emission.toString())
+    const runArgs: string[] = ["--path", `"${scenePath}"`];
+    if (args.useQAMask) runArgs.push("--useQAMask");
+    if (isNumber(args.emission))
+      runArgs.push("--emission", args.emission.toString());
     Object.entries(args.outLayers).forEach(([outLayerKey, required]) => {
-      if (required) runArgs.push(`--save${outLayerKey}`)
-    })
+      if (required) runArgs.push(`--save${outLayerKey}`);
+    });
+    if (args.saveDirectory) runArgs.push("--out", `"${args.saveDirectory}"`);
+    if (args.layerNamePattern) runArgs.push("--layerPattern", `"${args.layerNamePattern}"`);
 
     // const _execFile = util.promisify(execFile);
     // const calcProcess = execFile(calculationProcessPath, runArgs, (err, stdout, stderr) => {
@@ -128,14 +139,15 @@ const createWindow = async () => {
     // console.log({calcProcess, })
 
     const calculationProcess = exec(
-      `start /wait "Calculation of ${sceneId}" "${calculationProcessPath}" ${runArgs.join(' ')}`,
+      `start /wait "Calculation of ${sceneId}" "${calculationProcessPath}" ${runArgs.join(
+        " "
+      )}`,
       (...args: any) => {
         console.log("Calculate", scenePath, JSON.stringify(args, null, 2));
       }
     );
 
-    return `"${calculationProcessPath}" ${runArgs.join(' ')}`;
-
+    return `"${calculationProcessPath}" ${runArgs.join(" ")}`;
   });
 
   ipcMain.handle<Api>(
