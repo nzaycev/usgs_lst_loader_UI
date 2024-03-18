@@ -9,6 +9,7 @@ export type USGSLayerType =
   | "ST_ATRAN"
   | "ST_URAD"
   | "ST_DRAD"
+  | "SR_B6"
   | "SR_B5"
   | "SR_B4"
   | "QA_PIXEL";
@@ -16,6 +17,8 @@ export type USGSLayerType =
 export interface ISceneState {
   isRepo: boolean; // was it added by app or manually
   scenePath: string;
+  entityId: string;
+  displayId: string;
   calculationPid?: number;
   donwloadedFiles: Record<
     USGSLayerType,
@@ -100,17 +103,26 @@ export enum OutLayer {
   Emission = "Emission",
   LST = "LST",
   NDVI = "NDVI",
+  NDMI = "NDMI",
   Radiance = "Radiance",
   SurfRad = "SurfRad",
   VegProp = "VegProp",
+}
+
+export enum EmissionCalcMethod {
+  vegProp = "vegProp",
+  log = "log",
+  logDiapasons = "logDiapasons",
+  ndmi = "ndmi",
 }
 
 export type RunArgs = {
   useQAMask: boolean;
   emission?: number;
   outLayers: Record<OutLayer, boolean>;
-  saveDirectory?: string
-  layerNamePattern?: string
+  saveDirectory?: string;
+  layerNamePattern?: string;
+  emissionCalcMethod?: EmissionCalcMethod;
 };
 
 const mainActions = createSlice({
@@ -165,6 +177,7 @@ const mainActions = createSlice({
     },
     addDir(state, action: PayloadAction<FsActionPayload>) {
       const { isOutFile, scenePath } = action.payload.parsedPath;
+      const { displayId, entityId } = action.payload.indexContent;
       if (isOutFile) {
         return;
       }
@@ -172,11 +185,14 @@ const mainActions = createSlice({
         isRepo: false,
         calculated: false,
         calculation: 0,
+        displayId,
+        entityId,
         scenePath,
         donwloadedFiles: {
           QA_PIXEL: {},
           SR_B4: {},
           SR_B5: {},
+          SR_B6: {},
           ST_ATRAN: {},
           ST_DRAD: {},
           ST_TRAD: {},

@@ -175,6 +175,7 @@ export class FsWatcher {
         QA_PIXEL: getFileStats("QA_PIXEL"),
         SR_B4: getFileStats("SR_B4"),
         SR_B5: getFileStats("SR_B5"),
+        SR_B6: getFileStats("SR_B6"),
         ST_ATRAN: getFileStats("ST_ATRAN"),
         ST_DRAD: getFileStats("ST_DRAD"),
         ST_TRAD: getFileStats("ST_TRAD"),
@@ -182,6 +183,8 @@ export class FsWatcher {
       };
 
       state[sceneId] = {
+        displayId: indexState.displayId,
+        entityId: indexState.entityId,
         isRepo: !!indexState,
         scenePath: item,
         calculation: indexState?.calculation,

@@ -1,4 +1,5 @@
 B5_NAME = "SR_B5"
+B6_NAME = "SR_B6"
 B4_NAME = "SR_B4"
 ST_TRAD_NAME = "ST_TRAD"
 ST_DRAD_NAME = "ST_DRAD"
@@ -7,6 +8,7 @@ ST_ATRAN_NAME = "ST_ATRAN"
 BQA = "QA_PIXEL"
 
 scaleFactors = {
+    B6_NAME:1,
     B5_NAME:1,
     B4_NAME:1,
     BQA: 1,

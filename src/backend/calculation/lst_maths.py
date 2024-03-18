@@ -9,7 +9,39 @@ def calcNDVI(B5, B4):
     filtered = gaussian_filter(ndvi, sigma=(2,2), mode="nearest")
     return ndvi, numpy.nanmin(filtered), numpy.nanmax(filtered)
 
-def calcEmission(vegProp):
+def calcNDMI(B5, B6):
+    NDMI = (B5 - B6) / (B5 + B6)
+    return NDMI
+
+def calcEmissionWithNdviDiapasons(ndvi):
+    # return 1.0094 + 0.047 * numpy.log(ndvi)
+    return numpy.where(
+        ndvi < -0.185, 
+        0.995,
+        numpy.where(
+            ndvi < 0.157,
+            0.970,
+            numpy.where(ndvi < 0.727,
+                1.0094 + 0.047 * numpy.log(ndvi),
+                0.990
+            )
+        )
+    )  
+
+def calcEmissionWithNdviLog(ndvi):
+    return 1.0094 + 0.047 * numpy.log(ndvi)  
+
+def calcEmissionWithNdmiLog(ndmi):
+    # TODO: the values should be dynamic
+    e_v = 0.978 
+    e_s = 0.914
+    i_v = 0.24
+    i_s = -0.06
+    d_i = 0.04
+    d_e = 0.04
+    return (e_v - e_s) / (i_v - i_s) * ndmi  + d_e + (e_s * (i_v + d_i) - e_v * (i_s + d_i))/(i_v - i_s)
+
+def calcEmissionWithVegprop(vegProp):
     return numpy.add(
         numpy.multiply(
             vegProp,

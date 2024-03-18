@@ -7,7 +7,7 @@ import sys
 from alive_progress import alive_bar
 
 import time
-from lst_maths import calcBT, calcEmission, calcLST, calcNDVI, calcRadiance, calcSurfRad, calcVegProp
+from lst_maths import calcBT, calcEmissionWithNdmiLog, calcEmissionWithNdviDiapasons, calcEmissionWithNdviLog, calcEmissionWithVegprop, calcLST, calcNDMI, calcNDVI, calcRadiance, calcSurfRad, calcVegProp
 from raster_tools import getBandByName, saveRaster
 
 import band_names as Band
@@ -26,6 +26,13 @@ parser=argparse.ArgumentParser(
 
 parser.add_argument('--path', type=str, help='location of downloaded bands', required=True)
 parser.add_argument('--out', type=str, help='location of calculated layers', required=False, default="./out_{date}-{args}")
+# enum {
+#   vegProp
+#   log
+#   logDiapasons
+#   ndmi
+# }
+parser.add_argument('--emissionCalcMethod', type=str, help='way of emission calculation', required=False, default="ndmi")
 parser.add_argument('--layerPattern', type=str, help='pattern of calculated layer', required=False, default="{name}")
 parser.add_argument('--useQAMask', type=bool, default=False, help='if enable, the layer will be clipped by QA_BAND mask', nargs="?", required=False, const=True)
 parser.add_argument('--emission', type=float, help='use const emission value through the map', required=False)
@@ -33,6 +40,7 @@ parser.add_argument('--saveBT', type=bool, help='save BT', nargs="?", required=F
 parser.add_argument('--saveEmission', type=bool, help='save emission', nargs="?", required=False, const=True)
 parser.add_argument('--saveLST', type=bool, help='save LST', nargs="?", required=False, const=True)
 parser.add_argument('--saveNDVI', type=bool, help='save NDVI', nargs="?", required=False, const=True)
+parser.add_argument('--saveNDMI', type=bool, help='save NDMI', nargs="?", required=False, const=True)
 parser.add_argument('--saveRadiance', type=bool, help='save Radiance', nargs="?", required=False, const=True)
 parser.add_argument('--saveSurfRad', type=bool, help='save SurfRad', nargs="?", required=False, const=True)
 parser.add_argument('--saveVegProp', type=bool, help='save VegProp', nargs="?", required=False, const=True)
@@ -44,6 +52,8 @@ if args.useQAMask:
     flags.append("withQAMask")
 if args.emission:
     flags.append("emission-{}".format(args.emission))
+if args.emissionCalcMethod:
+    flags.append("emissionCalcMethod-{}".format(args.emissionCalcMethod))
 outDirName = args.out.format(
     date=datetime.strftime(datetime.now(), "%Y-%m-%d_%H-%M__%S"),
     args="_".join(flags),
@@ -69,6 +79,7 @@ def calcAllLST():
             return applyScaleFactor(res, scaleFactor)
         getBand = lambda x: getBandWithLog(x, pathTemplate, Band.scaleFactors[x])
 
+        b6_band = getBand(Band.B6_NAME)
         b5_band = getBand(Band.B5_NAME)
         b4_band = getBand(Band.B4_NAME)
         st_trad_band = getBand(Band.ST_TRAD_NAME)
@@ -84,7 +95,7 @@ def calcAllLST():
             saveRaster(outTemplate.format(_name), pathTemplate.format(Band.B5_NAME), x)
 
     # emit(0.1)
-    max_steps = 5 if args.emission else 7
+    max_steps = 6 if args.emission else 8
     layers = []
     with alive_bar(max_steps, title='Calculaion') as bar:     
         def doWithProgress(callback, name):
@@ -94,12 +105,24 @@ def calcAllLST():
                 layers.append({"band": result if name != "NDVI" else result[0], "name": name})
             return result
 
+        # use const value
         if args.emission is not None:
             _emission = doWithProgress(lambda: numpy.full(st_trad_band.shape, args.emission), "Emission")
         else:
             _ndvi, min, max = doWithProgress(lambda: calcNDVI(B5=b5_band, B4=b4_band), "NDVI")
             _vegProp = doWithProgress(lambda: calcVegProp(NDVI=_ndvi, min=min, max=max), "VegProp")
-            _emission = doWithProgress(lambda: calcEmission(vegProp=_vegProp), "Emission")
+            _ndmi = doWithProgress(lambda: calcNDMI(B5=b5_band, B6=b6_band), "NDMI")
+
+            if args.emissionCalcMethod == 'ndmi':
+                _emission = doWithProgress(lambda: calcEmissionWithNdmiLog(ndmi=_ndmi), "Emission")
+            elif args.emissionCalcMethod == 'vegProp':
+                _emission = doWithProgress(lambda: calcEmissionWithVegprop(vegProp=_vegProp), "Emission")
+            elif args.emissionCalcMethod == 'log':
+                _emission = doWithProgress(lambda: calcEmissionWithNdviLog(ndvi=_ndvi), "Emission")
+            elif args.emissionCalcMethod == 'logDiapasons':
+                _emission = doWithProgress(lambda: calcEmissionWithNdviDiapasons(ndvi=_ndvi), "Emission")
+            else:
+                raise Exception('unexisted emission calculation method')
 
         _surfRad = doWithProgress(lambda: calcSurfRad(ST_TRAD=st_trad_band, ST_URAD=st_urad_band, ST_ATRAN=st_atran_band), "SurfRad")
         _radiance = doWithProgress(lambda: calcRadiance(SurfRad=_surfRad, Emission=_emission, ST_DRAD=st_drad_band), "Radiance")

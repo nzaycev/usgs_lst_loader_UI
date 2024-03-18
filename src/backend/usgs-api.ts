@@ -157,6 +157,7 @@ export const getDownloadDS = async (entityId: string) => {
     "ST_URAD",
     "ST_DRAD",
     "SR_B5",
+    "SR_B6",
     "SR_B4",
     "QA_PIXEL",
   ];
@@ -240,8 +241,8 @@ export const getDownloadDS = async (entityId: string) => {
 
       moreDownloadUrls["available"].forEach((download: any) => {
         console.log("test", download["displayId"], downloads);
-        if (!requiredLayers.find(x => download["displayId"].includes(x))) {
-          return
+        if (!requiredLayers.find((x) => download["displayId"].includes(x))) {
+          return;
         }
         downloadUrls.push({
           id: download["downloadId"],
@@ -326,6 +327,41 @@ export const findoutFilterIds = async () => {
   //     (x: any) => x.fieldLabel === "Collection Category"
   //   ).id, // T1
   // };
+};
+
+export const reindexScene = async ({ displayId }: { displayId: string }) => {
+  const { productIdentifier } = await findoutFilterIds();
+  const filters: any = {
+    datasetName,
+    maxResults: 1,
+    sceneFilter: {
+      metadataFilter: {
+        filterType: "value",
+        filterId: productIdentifier,
+        value: displayId,
+        operand: "=",
+      },
+    },
+  };
+  try {
+    const { data, ...props } = await axiosInstance.post(
+      "scene-search",
+      filters
+    );
+    console.log({ data, props });
+    if (!data || !data.data) {
+      throw new Error(
+        `Can't get scenes cause of "${JSON.stringify(
+          data,
+          null,
+          2
+        )}"; \n"${JSON.stringify(props, null, 2)}"`
+      );
+    }
+    return { ...data, ...filters };
+  } catch (e) {
+    throw new Error(`Can't get scenes cause of ${e}`);
+  }
 };
 
 export const searchScenes = async ({

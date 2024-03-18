@@ -123,6 +123,7 @@ const createWindow = async () => {
 
     const runArgs: string[] = ["--path", `"${scenePath}"`];
     if (args.useQAMask) runArgs.push("--useQAMask");
+    if (args.emissionCalcMethod) runArgs.push("--emissionCalcMethod", `"${args.emissionCalcMethod}"`);
     if (isNumber(args.emission))
       runArgs.push("--emission", args.emission.toString());
     Object.entries(args.outLayers).forEach(([outLayerKey, required]) => {
@@ -185,7 +186,7 @@ const createWindow = async () => {
    */
   ipcMain.handle<Api>(
     "addRepo",
-    async (_, { displayId, ds }: DownloadProps, alsoDownload: boolean) => {
+    async (_, { displayId, entityId, ds }: DownloadProps, alsoDownload: boolean) => {
       const appdataPath = path.join(app.getPath("userData"), "localStorage");
       const scenePath = path.join(appdataPath, displayId);
       if (!fs.existsSync(scenePath)) {
@@ -196,6 +197,8 @@ const createWindow = async () => {
         isRepo: true,
         calculation: 0,
         scenePath,
+        entityId,
+        displayId,
         donwloadedFiles: Object.assign(
           {},
           ...ds.map((item) => ({

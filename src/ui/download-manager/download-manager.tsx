@@ -10,29 +10,28 @@ import {
   FormControl,
   FormLabel,
   Input,
+  Select,
   SimpleGrid,
   Switch,
-  toast,
   useDisclosure,
   useToast,
 } from "@chakra-ui/react";
 import {
-  faCalculator,
   faCheckCircle,
   faDownload,
-  faFolderOpen,
   faPlay,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { isFulfilled } from "@reduxjs/toolkit";
-import { isNumber, noop } from "lodash";
+import { noop } from "lodash";
 
 import React, { ReactNode, useEffect, useMemo, useState } from "react";
 import styled, { css } from "styled-components";
-import { justTry } from "../../tools/just-try";
 import {
+  addSceneToRepo,
   DisplayId,
   downloadScene,
+  EmissionCalcMethod,
   ISceneState,
   OutLayer,
   RunArgs,
@@ -52,6 +51,7 @@ import {
   SceneList,
   SceneListItem,
 } from "./download-manager.styled";
+import { useLazyGetSceneByIdQuery } from "../../actions/searchApi";
 
 const ProgressView: React.FC<{ progress: number }> = ({
   children,
@@ -128,7 +128,8 @@ const SceneStateView = ({
       </>
     );
   };
-
+  const [getScene] = useLazyGetSceneByIdQuery();
+  const dispatch = useAppDispatch();
   return (
     <SceneListItem>
       <AggregatedView>
@@ -155,13 +156,12 @@ const SceneStateView = ({
             icon={faDownload}
             disable={!isLoadPossible}
             onClick={async () => {
-              urls.forEach((url) => {
-                const anchor = document.createElement("a");
-                anchor.href = url;
-                anchor.target = "_blank";
-                anchor.download = "";
-                anchor.click();
-              });
+              getScene(displayId)
+                .unwrap()
+                .then((data) => {
+                  const { entityId, displayId } = data.results[0];
+                  dispatch(addSceneToRepo({ displayId, entityId }));
+                });
             }}
           />
         )}
@@ -221,6 +221,15 @@ const SceneStateView = ({
               %
             </ProgressView>
             <ProgressView
+              progress={state.donwloadedFiles["SR_B6"]?.progress || 0}
+            >
+              SR_B6{" "}
+              {Math.round(
+                (state.donwloadedFiles["SR_B6"]?.progress || 0) * 100
+              )}
+              %
+            </ProgressView>
+            <ProgressView
               progress={state.donwloadedFiles["SR_B5"]?.progress || 0}
             >
               SR_B5{" "}
@@ -264,14 +273,19 @@ type OpenDialogFunction = (args: { onStart: OnStartFunction }) => void;
 const initialFormState: RunArgs = {
   useQAMask: true,
   emission: undefined,
+  // saveDirectory:
+  //   "C:\\Users\\nzayt\\Documents\\диссер\\сравнение сезонов диапазоны",
+  // layerNamePattern: "{date}-{name}",
+  emissionCalcMethod: EmissionCalcMethod.ndmi,
   outLayers: {
     [OutLayer.LST]: true,
-    [OutLayer.BT]: false,
-    [OutLayer.Emission]: false,
-    [OutLayer.NDVI]: false,
-    [OutLayer.Radiance]: false,
-    [OutLayer.SurfRad]: false,
-    [OutLayer.VegProp]: false,
+    [OutLayer.BT]: true,
+    [OutLayer.Emission]: true,
+    [OutLayer.NDMI]: true,
+    [OutLayer.NDVI]: true,
+    [OutLayer.Radiance]: true,
+    [OutLayer.SurfRad]: true,
+    [OutLayer.VegProp]: true,
   },
 };
 
@@ -456,6 +470,46 @@ const ConfirmDialog = ({
                     }))
                   }
                 />
+                <FormLabel color="gray.400" margin={0}>
+                  NDMI:
+                </FormLabel>
+                <Switch
+                  size={"sm"}
+                  isChecked={formState.outLayers.NDMI}
+                  onChange={() =>
+                    setFormState((prev) => ({
+                      ...prev,
+                      outLayers: {
+                        ...prev.outLayers,
+                        NDMI: !prev.outLayers.NDMI,
+                      },
+                    }))
+                  }
+                />
+                <Select
+                  defaultValue={EmissionCalcMethod.ndmi}
+                  size="xs"
+                  gridColumn={"1/3"}
+                  onChange={(e) =>
+                    setFormState((prev) => ({
+                      ...prev,
+                      emissionCalcMethod: e.target.value as EmissionCalcMethod,
+                    }))
+                  }
+                >
+                  <option value={EmissionCalcMethod.log}>
+                    {EmissionCalcMethod.log}
+                  </option>
+                  <option value={EmissionCalcMethod.logDiapasons}>
+                    {EmissionCalcMethod.logDiapasons}
+                  </option>
+                  <option value={EmissionCalcMethod.ndmi}>
+                    {EmissionCalcMethod.ndmi}
+                  </option>
+                  <option value={EmissionCalcMethod.vegProp}>
+                    {EmissionCalcMethod.vegProp}
+                  </option>
+                </Select>
                 <Link
                   onClick={() => {
                     setFormState((prev) => ({
@@ -465,6 +519,7 @@ const ConfirmDialog = ({
                         Emission: true,
                         LST: true,
                         NDVI: true,
+                        NDMI: true,
                         Radiance: true,
                         SurfRad: true,
                         VegProp: true,
@@ -483,6 +538,7 @@ const ConfirmDialog = ({
                         Emission: false,
                         LST: false,
                         NDVI: false,
+                        NDMI: false,
                         Radiance: false,
                         SurfRad: false,
                         VegProp: false,
@@ -551,9 +607,19 @@ export const DownloadManager = () => {
     dispatch(watchScenesState());
   }, [dispatch]);
   const toast = useToast();
-
+  console.log({ scenes });
   return (
     <>
+      <Button
+        style={{ position: "fixed", bottom: 0, zIndex: 10 }}
+        onClick={() => {
+          Object.keys(scenes).forEach((displayId) => {
+            dispatch(downloadScene({ displayId, args: initialFormState }));
+          });
+        }}
+      >
+        run all with default args
+      </Button>
       <ConfirmDialog>
         {({ ask }) => (
           <SceneList>
@@ -612,6 +678,7 @@ const getAggregatedProgress = (state: ISceneState) => {
     "ST_ATRAN",
     "ST_URAD",
     "ST_DRAD",
+    "SR_B6",
     "SR_B5",
     "SR_B4",
     "QA_PIXEL",
