@@ -35,7 +35,7 @@ def calcEmissionWithNdmiLog(ndmi):
     # TODO: the values should be dynamic
     e_v = 0.978 
     e_s = 0.914
-    i_v = 0.24
+    i_v = 0.13
     i_s = -0.06
     d_i = 0.04
     d_e = 0.04

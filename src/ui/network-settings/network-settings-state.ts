@@ -1,4 +1,5 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
+import { RunArgs } from "../../actions/main-actions";
 
 export interface IProxySettings {
   protocol: string;
@@ -12,6 +13,9 @@ export interface IProxySettings {
 
 export interface INetworkSettings {
   proxy?: IProxySettings;
+}
+export interface CalculationSettings {
+  args?: RunArgs;
 }
 
 export const readSettings = createAsyncThunk<INetworkSettings, void>(

@@ -42,7 +42,7 @@ export const store = configureStore({
   middleware(gdf) {
     return gdf({
       serializableCheck: false,
-    }).concat([searchApi.middleware, testNetworkApi.middleware]);
+    }).concat([searchApi.middleware, testNetworkApi.middleware, logger]);
   },
   reducer: {
     main: mainActions.reducer,

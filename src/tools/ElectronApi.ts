@@ -6,7 +6,7 @@ import type {
   USGSLayerType,
 } from "../actions/main-actions";
 import { SettingsChema } from "../backend/settings-store";
-import type { INetworkSettings } from "../ui/network-settings/network-settings-state";
+import type { CalculationSettings, INetworkSettings } from "../ui/network-settings/network-settings-state";
 
 export interface IScene {
   id: string;
@@ -47,6 +47,7 @@ export type RequestApi = {
   ) => Promise<void>;
   watchNetworkSettings: () => Promise<INetworkSettings>;
   saveNetworkSettings: (settings: INetworkSettings) => Promise<void>;
+  saveCalculationSettings: (settings: CalculationSettings) => Promise<void>;
 };
 
 export type ParsedPath = {

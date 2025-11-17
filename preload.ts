@@ -16,6 +16,9 @@ const api: Api = {
     async download(...args) {
       return ipcRenderer.invoke<Api>("download", ...args);
     },
+    async saveCalculationSettings(settings) {
+      return ipcRenderer.invoke<Api>("saveCalculationSettings", settings);
+    },
     async saveNetworkSettings(settings) {
       return ipcRenderer.invoke<Api>("saveNetworkSettings", settings);
     },

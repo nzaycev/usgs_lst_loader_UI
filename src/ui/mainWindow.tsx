@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { SystemHelper } from "./SystemHelper";
 
 import { BoundsSelector, ISelectionCoordinates } from "./BoundsSelector";
@@ -50,6 +50,10 @@ export function useTypedLocation<T extends keyof AppRoutes>() {
 export const MainWindow = () => {
   const dispatch = useAppDispatch();
   const authorized = useAppSelector((state) => state.main.authorized);
+  const localMode = useAppSelector((state) => state.main.localMode);
+  const setLocalMode = () => {
+    dispatch(mainActions.actions.setLocalState());
+  };
   useEffect(() => {
     const interval = setInterval(() => {
       dispatch(watchScenesState());
@@ -64,19 +68,28 @@ export const MainWindow = () => {
       <HashRouter>
         <SystemHelper />
         <Routes>
-          {authorized ? (
+          {authorized && (
             <>
-              <TypedRoute path="*" element={<Navigate to="/" />} />
+              {" "}
               <TypedRoute path="/bounds" element={<BoundsSelector />} />
               <TypedRoute path="/date_list" element={<DateList />} />
-              <TypedRoute path="/" element={<DownloadManager />} />
-            </>
-          ) : (
-            <>
-              <TypedRoute path="*" element={<Navigate to="/auth" />} />
-              <TypedRoute path="/auth" element={<LoginView />} />
             </>
           )}
+          <TypedRoute path="/" element={<DownloadManager />} />
+          {!authorized && <TypedRoute
+            path="/auth"
+            element={<LoginView skipLogin={() => setLocalMode()} />}
+          />}
+          <TypedRoute
+            path="*"
+            element={
+              authorized || localMode ? (
+                <Navigate to="/" />
+              ) : (
+                <Navigate to="/auth" />
+              )
+            }
+          />
         </Routes>
       </HashRouter>
     </div>

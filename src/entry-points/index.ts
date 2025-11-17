@@ -51,12 +51,29 @@ import {
   type USGSLayerType,
 } from "../actions/main-actions";
 import { FsWatcher } from "../backend/fs-watcher";
-import type { INetworkSettings } from "../ui/network-settings/network-settings-state";
+import type { CalculationSettings, INetworkSettings } from "../ui/network-settings/network-settings-state";
 import { applyProxySettings } from "./proxy-settings";
 import { SettingsChema, store } from "../backend/settings-store";
 import { isNumber } from "lodash";
 
 const fsWatcher = new FsWatcher(app);
+
+
+const logPath = path.join(app.getPath("userData"), 'log.txt')
+if (!fs.existsSync(logPath)) {
+  fs.writeFileSync(logPath, '')
+}
+const fLog = fs.openSync(logPath, 'a');
+const originalLog = console.log
+console.log = (...args) => {
+  originalLog(...args)
+  fs.appendFileSync(fLog, new Date().getTime() + ' : [LOG] : ' + JSON.stringify(args) + '\n')
+}
+const originalError = console.error
+console.error = (...args) => {
+  originalError(...args)
+  fs.appendFileSync(fLog, new Date().getTime() + ' : [ERROR] : ' + JSON.stringify(args) + '\n')
+}
 
 const createWindow = async () => {
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
@@ -154,17 +171,22 @@ const createWindow = async () => {
   ipcMain.handle<Api>(
     "saveNetworkSettings",
     async (_, settings: INetworkSettings) => {
-      // const userSettingsPath = path.join(
-      //   app.getPath("userData"),
-      //   ".networkSettings"
-      // );
-      // fs.writeFileSync(userSettingsPath, JSON.stringify(settings));
       applyProxySettings(app, mainWindow, settings.proxy);
-      // return;
       if (settings.proxy) {
         store.set("proxySettings", settings.proxy);
       } else {
         store.delete("proxySettings");
+      }
+    }
+  );
+
+  ipcMain.handle<Api>(
+    "saveCalculationSettings",
+    async (_, settings: CalculationSettings) => {
+      if (settings.args) {
+        store.set("calculationSettings", settings.args);
+      } else {
+        store.delete("calculationSettings");
       }
     }
   );

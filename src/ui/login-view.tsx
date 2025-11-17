@@ -1,4 +1,4 @@
-import { Button, Heading, Input, toast } from "@chakra-ui/react";
+import { Button, Flex, Heading, Input, toast } from "@chakra-ui/react";
 import React, { useCallback, useEffect, useState } from "react";
 import styled from "styled-components";
 import { mainActions } from "../actions/main-actions";
@@ -6,7 +6,7 @@ import { SettingsChema } from "../backend/settings-store";
 import { checkUserPermissons } from "../backend/usgs-api";
 import { useAppDispatch } from "../entry-points/app";
 
-export const LoginView = () => {
+export const LoginView = ({ skipLogin }: { skipLogin: () => void }) => {
   const dispatch = useAppDispatch();
   const [loading, setLoading] = useState(true);
   const [username, setUsername] = useState("");
@@ -60,12 +60,12 @@ export const LoginView = () => {
   if (loading) {
     return <Page>checking store</Page>;
   }
-  if (checkingPermissions) {
-    return <Page>checking permissions</Page>;
-  }
-  if (hasPermissions) {
-    return <Page>redirecting to the main view</Page>;
-  }
+  // if (checkingPermissions) {
+  //   return <Page>checking permissions</Page>;
+  // }
+  // if (hasPermissions) {
+  //   return <Page>redirecting to the main view</Page>;
+  // }
   return (
     <Page>
       <h4>enter your credentials</h4>
@@ -81,9 +81,14 @@ export const LoginView = () => {
         value={password}
         onChange={(e) => setPassword(e.target.value)}
       />
-      <Button type="button" onClick={login}>
-        log in
-      </Button>
+      <Flex gap={2}>
+        <Button type="button" onClick={login}>
+          log in
+        </Button>
+        <Button type="button" onClick={skipLogin}>
+          Enter in local mode
+        </Button>
+      </Flex>
     </Page>
   );
 };

@@ -37,6 +37,7 @@ interface IMainState {
   lastAvailableDate?: Date;
   scenes: Partial<Record<DisplayId, ISceneState>>;
   authorized: boolean;
+  localMode: boolean;
   searchValue: string;
   searchEnabled: boolean;
 }
@@ -46,6 +47,7 @@ const initialState: IMainState = {
   wait: false,
   scenes: {},
   authorized: false,
+  localMode: false,
   searchValue: "",
   searchEnabled: false,
 };
@@ -140,6 +142,9 @@ const mainActions = createSlice({
     },
     setDate(state, action: PayloadAction<string>) {
       state.lastAvailableDate = new Date(action.payload);
+    },
+    setLocalState(state) {
+      state.localMode = true
     },
     setFileProgress(
       state,

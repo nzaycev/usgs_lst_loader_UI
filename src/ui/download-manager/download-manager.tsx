@@ -52,6 +52,7 @@ import {
   SceneListItem,
 } from "./download-manager.styled";
 import { useLazyGetSceneByIdQuery } from "../../actions/searchApi";
+import { SettingsChema } from "../../backend/settings-store";
 
 const ProgressView: React.FC<{ progress: number }> = ({
   children,
@@ -87,6 +88,9 @@ const SceneStateView = ({
     Object.entries(state.donwloadedFiles).find(
       ([_, x]) => !x.progress || x.progress < 1
     );
+
+  const localMode = useAppSelector((state) => state.main.localMode);
+
   const isLoadPossible = state.isRepo;
 
   const mapSceneIdToString = (sceneId: string) => {
@@ -151,7 +155,7 @@ const SceneStateView = ({
               : `downloading ${Math.round(progress * 100)}%`}
           </span>
         </ProgressView>
-        {isLoadRequired && (
+        {isLoadRequired && !localMode && (
           <ClickableIcon
             icon={faDownload}
             disable={!isLoadPossible}
@@ -270,23 +274,31 @@ const SceneStateView = ({
 type OnStartFunction = (args: RunArgs) => void;
 type OpenDialogFunction = (args: { onStart: OnStartFunction }) => void;
 
-const initialFormState: RunArgs = {
-  useQAMask: true,
-  emission: undefined,
-  // saveDirectory:
-  //   "C:\\Users\\nzayt\\Documents\\диссер\\сравнение сезонов диапазоны",
-  // layerNamePattern: "{date}-{name}",
-  emissionCalcMethod: EmissionCalcMethod.ndmi,
-  outLayers: {
-    [OutLayer.LST]: true,
-    [OutLayer.BT]: true,
-    [OutLayer.Emission]: true,
-    [OutLayer.NDMI]: true,
-    [OutLayer.NDVI]: true,
-    [OutLayer.Radiance]: true,
-    [OutLayer.SurfRad]: true,
-    [OutLayer.VegProp]: true,
-  },
+const useFormState = () => {
+  const [initialFormState, setInitialFormState] = useState<
+    RunArgs | undefined
+  >();
+  const [formState, setFormState] = useState<RunArgs | null>(null);
+
+  const saveFormState = (value: RunArgs) => {
+    window.ElectronAPI.invoke.saveCalculationSettings({ args: value });
+  };
+  useEffect(() => {
+    if (formState) {
+      saveFormState(formState);
+    }
+  }, [formState]);
+  useEffect(() => {
+    (async () => {
+      const initialState = (await window.ElectronAPI.invoke.getStoreValue(
+        "calculationSettings"
+      )) as SettingsChema["calculationSettings"];
+      console.log("get", initialState);
+      setFormState(initialState);
+      setInitialFormState(initialState);
+    })();
+  }, []);
+  return [formState, setFormState, initialFormState] as const;
 };
 
 const ConfirmDialog = ({
@@ -297,15 +309,19 @@ const ConfirmDialog = ({
   const { isOpen, onOpen, onClose } = useDisclosure();
   const cancelRef = React.useRef();
 
-  const [formState, setFormState] = useState<RunArgs>(initialFormState);
+  const [formState, setFormState] = useFormState();
+
   const [onStart, setOnStart] = useState<OnStartFunction>(noop);
 
   const openNewDialog: OpenDialogFunction = ({ onStart }) => {
-    setFormState(initialFormState);
+    setFormState(formState);
     onOpen();
     setOnStart(() => onStart);
   };
 
+  if (!formState) {
+    return null;
+  }
   return (
     <>
       {children({
@@ -603,11 +619,17 @@ export const DownloadManager = () => {
   const { scenes, loading } = useAppSelector((state) => state.main);
   const dispatch = useAppDispatch();
   const navigate = useTypedNavigate();
+  const [initialFormState] = useFormState();
   useEffect(() => {
     dispatch(watchScenesState());
   }, [dispatch]);
   const toast = useToast();
   console.log({ scenes });
+  const localMode = useAppSelector((state) => state.main.localMode);
+  console.log({ initialFormState });
+  if (!initialFormState) {
+    return null;
+  }
   return (
     <>
       <Button
@@ -654,7 +676,11 @@ export const DownloadManager = () => {
         )}
       </ConfirmDialog>
       <AddButton
+        disabled={localMode}
         onClick={() => {
+          if (localMode) {
+            return;
+          }
           navigate("/bounds");
         }}
       >
