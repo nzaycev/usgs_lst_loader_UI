@@ -7,6 +7,7 @@ import {
   faTimes,
   faHouseChimney,
   faWifiStrong,
+  faWifi,
   faCircleDown,
   faSearch,
   faCross,
@@ -17,16 +18,14 @@ import { useDispatch } from "react-redux";
 import { networkSettingsSlice } from "./network-settings/network-settings-state";
 import styled from "styled-components";
 import { useAppDispatch, useAppSelector } from "../entry-points/app";
+import { mainActions } from "../actions/main-actions";
 import {
   Flex,
   Input,
   InputGroup,
-  InputLeftAddon,
   InputLeftElement,
-  InputRightAddon,
   InputRightElement,
 } from "@chakra-ui/react";
-import { mainActions } from "../actions/main-actions";
 // import { ElectonAPI } from "../tools/ElectronApi";
 
 // const { ipcRenderer } = window.require('electron')
@@ -69,78 +68,81 @@ export const SystemHelper = () => {
   const navigate = useTypedNavigate();
   const dispatch = useDispatch();
   const { value, setValue, searchEnabled } = useHelperSearch();
+
   return (
-    <StyledHelper>
-      <span
-        title="Close app"
-        onClick={() => {
-          console.log("aaa", window as any);
-          window.close();
-          // ;(window as any).api.send('message', {data: 123})
+    <>
+      <StyledHelper>
+        <span
+          title="Close app"
+          onClick={() => {
+            console.log("aaa", window as any);
+            window.close();
+            // ;(window as any).api.send('message', {data: 123})
 
-          // ipcRenderer.emit('message', {data: 123})
-        }}
-      >
-        <FontAwesomeIcon icon={faTimes} />
-      </span>
-      <span title="Reload page" onClick={() => location.reload()}>
-        <FontAwesomeIcon icon={faRefresh} />
-      </span>
-      <span
-        title="Open out folder"
-        onClick={() => window.ElectronAPI.invoke.openExplorer("")}
-      >
-        <FontAwesomeIcon icon={faFolderOpen} />
-      </span>
-
-      <span
-        title="Settings"
-        onClick={() => dispatch(networkSettingsSlice.actions.openSettings())}
-      >
-        <FontAwesomeIcon icon={faWifiStrong} />
-      </span>
-      <DragArea style={{ flex: 1, height: 0 }} />
-      {searchEnabled && (
-        <Flex
-          style={{ direction: "ltr" }}
-          position="absolute"
-          width={"100%"}
-          pointerEvents={"none"}
-          height={"100%"}
-          alignItems={"center"}
-          justifyContent={"center"}
+            // ipcRenderer.emit('message', {data: 123})
+          }}
         >
-          <InputGroup height={6} pointerEvents={"all"} width={"30%"}>
-            <InputLeftElement height={6}>
-              <FontAwesomeIcon icon={faSearch} />
-            </InputLeftElement>
-            <Input
-              height={6}
-              placeholder={"search"}
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-            />
-            <InputRightElement height={6}>
-              <FontAwesomeIcon
-                onClick={() => {
-                  setValue("");
-                }}
-                icon={faTimesCircle}
+          <FontAwesomeIcon icon={faTimes} />
+        </span>
+        <span title="Reload page" onClick={() => location.reload()}>
+          <FontAwesomeIcon icon={faRefresh} />
+        </span>
+        <span
+          title="Open out folder"
+          onClick={() => window.ElectronAPI.invoke.openExplorer("")}
+        >
+          <FontAwesomeIcon icon={faFolderOpen} />
+        </span>
+
+        <span
+          title="Settings"
+          onClick={() => dispatch(networkSettingsSlice.actions.openSettings())}
+        >
+          <FontAwesomeIcon icon={faWifiStrong} />
+        </span>
+        <DragArea style={{ flex: 1, height: 0 }} />
+        {searchEnabled && (
+          <Flex
+            style={{ direction: "ltr" }}
+            position="absolute"
+            width={"100%"}
+            pointerEvents={"none"}
+            height={"100%"}
+            alignItems={"center"}
+            justifyContent={"center"}
+          >
+            <InputGroup height={6} pointerEvents={"all"} width={"30%"}>
+              <InputLeftElement height={6}>
+                <FontAwesomeIcon icon={faSearch} />
+              </InputLeftElement>
+              <Input
+                height={6}
+                placeholder={"search"}
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
               />
-            </InputRightElement>
-          </InputGroup>
-        </Flex>
-      )}
-      <span title="Loading State" style={{ cursor: "default" }}>
-        <FontAwesomeIcon
-          icon={faCircleDown}
-          style={{ color: useIsLoading() ? "green" : "inherit" }}
-        />
-      </span>
-      <span title="Home" onClick={() => navigate("/")}>
-        <FontAwesomeIcon icon={faHouseChimney} />
-      </span>
-    </StyledHelper>
+              <InputRightElement height={6}>
+                <FontAwesomeIcon
+                  onClick={() => {
+                    setValue("");
+                  }}
+                  icon={faTimesCircle}
+                />
+              </InputRightElement>
+            </InputGroup>
+          </Flex>
+        )}
+        <span title="Loading State" style={{ cursor: "default" }}>
+          <FontAwesomeIcon
+            icon={faCircleDown}
+            style={{ color: useIsLoading() ? "green" : "inherit" }}
+          />
+        </span>
+        <span title="Home" onClick={() => navigate("/")}>
+          <FontAwesomeIcon icon={faHouseChimney} />
+        </span>
+      </StyledHelper>
+    </>
   );
 };
 

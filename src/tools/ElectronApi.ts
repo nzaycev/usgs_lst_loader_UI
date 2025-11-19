@@ -6,7 +6,10 @@ import type {
   USGSLayerType,
 } from "../actions/main-actions";
 import { SettingsChema } from "../backend/settings-store";
-import type { CalculationSettings, INetworkSettings } from "../ui/network-settings/network-settings-state";
+import type {
+  CalculationSettings,
+  INetworkSettings,
+} from "../ui/network-settings/network-settings-state";
 
 export interface IScene {
   id: string;
@@ -48,6 +51,61 @@ export type RequestApi = {
   watchNetworkSettings: () => Promise<INetworkSettings>;
   saveNetworkSettings: (settings: INetworkSettings) => Promise<void>;
   saveCalculationSettings: (settings: CalculationSettings) => Promise<void>;
+  selectFolder: () => Promise<string | null>;
+  selectFile: () => Promise<string | null>;
+  scanFolder: (folderPath: string) => Promise<{
+    files: string[];
+    suggestedMapping?: Record<string, USGSLayerType>;
+  }>;
+  addExternalFolder: (payload: {
+    folderPath: string;
+    fileMapping: Record<string, USGSLayerType>; // filePath -> layerType
+    metadata?: {
+      displayId: string;
+      entityId?: string;
+      captureDate?: string;
+      source?: string;
+      city?: string;
+      displayName?: string;
+    };
+  }) => Promise<void>;
+  openMappingDialog: (payload: {
+    folderPath: string;
+    files: string[];
+    suggestedMapping?: Record<string, USGSLayerType>;
+  }) => Promise<{
+    fileMapping: Record<string, USGSLayerType>;
+    metadata?: {
+      displayId: string;
+      entityId?: string;
+      captureDate?: string;
+      source?: string;
+      city?: string;
+      displayName?: string;
+    };
+  } | null>;
+  sendMappingDialogResult: (
+    result: {
+      fileMapping: Record<string, USGSLayerType>;
+      metadata?: {
+        displayId: string;
+        entityId?: string;
+        captureDate?: string;
+        source?: string;
+        city?: string;
+        displayName?: string;
+      };
+    } | null
+  ) => Promise<void>;
+  openLoginDialog: (payload: {
+    username?: string;
+    token?: string;
+    autoLogin?: boolean;
+    targetRoute?: string;
+  }) => Promise<{ username: string; token: string } | null>;
+  sendLoginDialogResult: (
+    result: { username: string; token: string } | null
+  ) => Promise<void>;
 };
 
 export type ParsedPath = {
@@ -73,6 +131,12 @@ export type HookApi = {
     indexContent?: ISceneState;
     size?: number;
   }) => Promise<void>;
+  loginSuccess: (data: {
+    username: string;
+    token: string;
+    targetRoute: string;
+  }) => Promise<void>;
+  openLoginDialog403: (data: { targetRoute: string }) => Promise<void>;
 };
 
 export type Api = GetApiType<RequestApi, HookApi>;

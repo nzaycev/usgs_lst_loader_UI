@@ -1,7 +1,9 @@
-import { configureStore, createAsyncThunk } from "@reduxjs/toolkit";
+import { configureStore } from "@reduxjs/toolkit";
 import React from "react";
 import ReactDOM from "react-dom";
 import { MainWindow } from "../ui/mainWindow";
+import { MappingDialogWindowApp } from "../ui/mapping-dialog-window";
+import { LoginDialogWindowApp } from "../ui/login-dialog-window";
 import logger from "redux-logger";
 import {
   Provider,
@@ -21,20 +23,48 @@ import { NetworkSettingsWrapper } from "../ui/network-settings/network-settings-
 import { networkSettingsSlice } from "../ui/network-settings/network-settings-state";
 
 function render() {
-  ReactDOM.render(
-    <Provider store={store}>
-      <ChakraProvider>
-        <NetworkSettingsWrapper>
-          <NetworkTestWrapper>
-            <MapProvider>
-              <MainWindow />
-            </MapProvider>
-          </NetworkTestWrapper>
-        </NetworkSettingsWrapper>
-      </ChakraProvider>
-    </Provider>,
-    document.getElementById("root")
-  );
+  // Проверяем, является ли это окном диалога
+  const hash = window.location.hash;
+  const isMappingDialog = hash.startsWith("#mapping-dialog:");
+  const isLoginDialog = hash.startsWith("#login-dialog:");
+
+  try {
+    if (isMappingDialog) {
+      // Рендерим только диалог маппинга без Redux и других провайдеров
+      ReactDOM.render(
+        <MappingDialogWindowApp />,
+        document.getElementById("root")
+      );
+    } else if (isLoginDialog) {
+      // Рендерим только диалог авторизации без Redux и других провайдеров
+      ReactDOM.render(
+        <LoginDialogWindowApp />,
+        document.getElementById("root")
+      );
+    } else {
+      // Обычное главное окно
+      ReactDOM.render(
+        <Provider store={store}>
+          <ChakraProvider>
+            <NetworkSettingsWrapper>
+              <NetworkTestWrapper>
+                <MapProvider>
+                  <MainWindow />
+                </MapProvider>
+              </NetworkTestWrapper>
+            </NetworkSettingsWrapper>
+          </ChakraProvider>
+        </Provider>,
+        document.getElementById("root")
+      );
+    }
+  } catch (error) {
+    console.error("Error during render:", error);
+    ReactDOM.render(
+      <div>{JSON.stringify(error)}</div>,
+      document.getElementById("root")
+    );
+  }
 }
 
 export const store = configureStore({
@@ -58,10 +88,5 @@ export type AppDispatch = typeof store.dispatch;
 
 export const useAppDispatch: () => AppDispatch = useDispatch;
 export const useAppSelector: TypedUseSelectorHook<RootState> = useSelector;
-
-type ThunkApiConfig = {
-  state: RootState
-  dispatch: AppDispatch
-}
 
 render();

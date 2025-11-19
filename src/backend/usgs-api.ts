@@ -10,12 +10,12 @@ import { SettingsChema } from "./settings-store";
 // console.log('procenv', process.env)
 
 const USGS_API_URL = "https://m2m.cr.usgs.gov/api/api/json/stable";
-const username = ""; //window.usgs_username;
-const password = ""; //window.usgs_password;
+const username = "";
+const token = "";
 
 const authParams = {
   username,
-  password,
+  token,
 };
 
 // Init instance of axios which works with BASE_URL
@@ -28,7 +28,7 @@ const createSession = async () => {
   console.log("create session");
 
   console.log("auth", authParams);
-  const resp = await axios.post(`${USGS_API_URL}/login`, authParams);
+  const resp = await axios.post(`${USGS_API_URL}/login-token`, authParams);
   const { data } = resp.data; // getting cookie from request
   const [cookie] = resp.headers["set-cookie"] || [];
   console.log("sss", axiosInstance.defaults.headers);
@@ -51,12 +51,39 @@ const clearQueue = () => {
   requestQueue = [];
 };
 
+// Function to open login dialog from main process (will be set by index.ts)
+let openLoginDialogHandler: ((targetRoute?: string) => Promise<void>) | null =
+  null;
+
+export const setOpenLoginDialogHandler = (
+  handler: (targetRoute?: string) => Promise<void>
+) => {
+  openLoginDialogHandler = handler;
+};
+
 // registering axios interceptor which handle response's errors
 axiosInstance.interceptors.response.use(null, (error) => {
   const { response = {}, config: sourceConfig } = error;
 
   // checking if request failed cause Unauthorized
   if (response.status === 401 || response.status === 403) {
+    // If session creation fails and we have a handler, open login dialog
+    if (
+      response.status === 403 &&
+      openLoginDialogHandler &&
+      !isGetActiveSessionRequest &&
+      !response.data
+    ) {
+      // Get current route from window location if available
+      const targetRoute =
+        typeof window !== "undefined" && window.location
+          ? window.location.hash.replace("#", "") || "/bounds"
+          : "/bounds";
+      openLoginDialogHandler(targetRoute).catch((e) => {
+        console.error("Error opening login dialog:", e);
+      });
+      return Promise.reject(error);
+    }
     // if (!response.data || response.data.errorCode === "UNAUTHORIZED_USER") {
     // if this request is first we set isGetActiveSessionRequest flag to true and run createSession
     if (!isGetActiveSessionRequest && response.data) {
@@ -418,14 +445,14 @@ export const searchScenes = async ({
 
 export const checkUserPermissons = async (creds: SettingsChema["userdata"]) => {
   authParams.username = creds.username;
-  authParams.password = creds.password;
+  authParams.token = creds.token;
   try {
     await axiosInstance.post(`${USGS_API_URL}/logout`);
   } catch (e) {
     console.log("cant logout");
   }
   try {
-    await axiosInstance.post(`${USGS_API_URL}/login`, creds);
+    await axiosInstance.post(`${USGS_API_URL}/login-token`, creds);
   } catch (e) {
     return;
   }

@@ -18,6 +18,7 @@ import {
   Stack,
   Switch,
   useToast,
+  Text,
 } from "@chakra-ui/react";
 import { isEqual } from "lodash";
 import React, { useEffect, useState } from "react";
@@ -30,6 +31,7 @@ import {
   readSettings,
   writeSettings,
 } from "./network-settings-state";
+import { SettingsChema } from "../../backend/settings-store";
 
 type DeepPartial<T> = T extends object
   ? {
@@ -42,9 +44,11 @@ export const NetworkSettingsWrapper: React.FC = ({ children }) => {
     (state) => state.networkSettings
   );
   const settings = useAppSelector((state) => state.networkSettings.settings);
+  const authorized = useAppSelector((state) => state.main.authorized);
   const toast = useToast();
   const [tempSettings, setTempSettings] =
     useState<DeepPartial<INetworkSettings>>(settings);
+  const [userCreds, setUserCreds] = useState<SettingsChema["userdata"]>();
 
   const hasUnsaved = isEqual(settings, tempSettings);
 
@@ -59,6 +63,33 @@ export const NetworkSettingsWrapper: React.FC = ({ children }) => {
   useEffect(() => {
     dispatch(readSettings());
   }, [dispatch]);
+
+  useEffect(() => {
+    const loadUserCreds = async () => {
+      const creds = (await window.ElectronAPI.invoke.getStoreValue(
+        "userdata"
+      )) as SettingsChema["userdata"];
+      setUserCreds(creds);
+    };
+    if (settingsOpened) {
+      loadUserCreds();
+    }
+  }, [settingsOpened]);
+
+  const handleOpenAuth = async () => {
+    const result = await window.ElectronAPI.invoke.openLoginDialog({
+      username: userCreds?.username,
+      token: userCreds?.token,
+      autoLogin: false,
+    });
+    if (result) {
+      // Reload credentials
+      const creds = (await window.ElectronAPI.invoke.getStoreValue(
+        "userdata"
+      )) as SettingsChema["userdata"];
+      setUserCreds(creds);
+    }
+  };
 
   return (
     <>
@@ -212,6 +243,25 @@ export const NetworkSettingsWrapper: React.FC = ({ children }) => {
                     </FormControl>
                   </div>
                 </div>
+                <Divider mt={6} mb={4} />
+                <SettingsBlockTitle>
+                  <h2>USGS Authentication</h2>
+                </SettingsBlockTitle>
+                <FormControl mt={4}>
+                  <FormLabel>Status</FormLabel>
+                  <Text fontSize="sm" mb={2}>
+                    {authorized && userCreds?.username
+                      ? `Logged in as: ${userCreds.username}`
+                      : "Not authenticated"}
+                  </Text>
+                  <Button
+                    size="sm"
+                    colorScheme={authorized ? "green" : "blue"}
+                    onClick={handleOpenAuth}
+                  >
+                    {authorized ? "Edit Credentials" : "Log In"}
+                  </Button>
+                </FormControl>
               </>
             )}
           </ModalBody>

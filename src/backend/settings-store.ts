@@ -10,7 +10,9 @@ export interface SettingsChema {
   proxySettings?: INetworkSettings["proxy"];
   userdata?: {
     username: string;
-    password: string;
+    /** @deprecated */
+    password?: string;
+    token: string;
   };
 }
 

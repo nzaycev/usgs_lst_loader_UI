@@ -1,4 +1,10 @@
-import { app, BrowserWindow, session } from "electron";
+import {
+  app,
+  BrowserWindow,
+  session,
+  dialog,
+  ipcMain as electronIpcMain,
+} from "electron";
 import { ipcMain } from "electron-typescript-ipc";
 import fs from "fs";
 import path from "path";
@@ -51,29 +57,115 @@ import {
   type USGSLayerType,
 } from "../actions/main-actions";
 import { FsWatcher } from "../backend/fs-watcher";
-import type { CalculationSettings, INetworkSettings } from "../ui/network-settings/network-settings-state";
+import type {
+  CalculationSettings,
+  INetworkSettings,
+} from "../ui/network-settings/network-settings-state";
 import { applyProxySettings } from "./proxy-settings";
 import { SettingsChema, store } from "../backend/settings-store";
 import { isNumber } from "lodash";
+import {
+  checkUserPermissons,
+  setOpenLoginDialogHandler,
+} from "../backend/usgs-api";
 
 const fsWatcher = new FsWatcher(app);
 
-
-const logPath = path.join(app.getPath("userData"), 'log.txt')
+const logPath = path.join(app.getPath("userData"), "log.txt");
 if (!fs.existsSync(logPath)) {
-  fs.writeFileSync(logPath, '')
+  fs.writeFileSync(logPath, "");
 }
-const fLog = fs.openSync(logPath, 'a');
-const originalLog = console.log
+const fLog = fs.openSync(logPath, "a");
+const originalLog = console.log;
 console.log = (...args) => {
-  originalLog(...args)
-  fs.appendFileSync(fLog, new Date().getTime() + ' : [LOG] : ' + JSON.stringify(args) + '\n')
-}
-const originalError = console.error
+  originalLog(...args);
+  fs.appendFileSync(
+    fLog,
+    new Date().getTime() + " : [LOG] : " + JSON.stringify(args) + "\n"
+  );
+};
+const originalError = console.error;
 console.error = (...args) => {
-  originalError(...args)
-  fs.appendFileSync(fLog, new Date().getTime() + ' : [ERROR] : ' + JSON.stringify(args) + '\n')
-}
+  originalError(...args);
+  fs.appendFileSync(
+    fLog,
+    new Date().getTime() + " : [ERROR] : " + JSON.stringify(args) + "\n"
+  );
+};
+
+// Register renderer log handler early, before windows are created
+electronIpcMain.on(
+  "renderer-log",
+  (event, data: { level: string; args: unknown[] }) => {
+    try {
+      const { level, args } = data;
+      const timestamp = new Date().toISOString();
+      let windowTitle = "Unknown Window";
+      try {
+        windowTitle = event.sender.getTitle() || "Unknown Window";
+      } catch (e) {
+        // If we can't get title, use sender ID
+        windowTitle = `Window-${event.sender.id}`;
+      }
+
+      // Format message - args are already serialized in preload
+      const formattedArgs = args.map((arg) => {
+        if (arg === null || arg === undefined) {
+          return String(arg);
+        }
+        if (
+          typeof arg === "string" ||
+          typeof arg === "number" ||
+          typeof arg === "boolean"
+        ) {
+          return String(arg);
+        }
+        if (typeof arg === "object") {
+          try {
+            return JSON.stringify(arg, null, 2);
+          } catch {
+            return String(arg);
+          }
+        }
+        return String(arg);
+      });
+
+      const message = formattedArgs.join(" ");
+
+      // Log to console with window context
+      const logMessage = `[${timestamp}] [${windowTitle}] [${level.toUpperCase()}] ${message}`;
+
+      switch (level) {
+        case "error":
+          console.error(logMessage);
+          break;
+        case "warn":
+          console.warn(logMessage);
+          break;
+        case "info":
+          console.info(logMessage);
+          break;
+        default:
+          console.log(logMessage);
+      }
+
+      // Also append to log file if available
+      try {
+        fs.appendFileSync(
+          fLog,
+          `${timestamp} : [${level.toUpperCase()}] [${windowTitle}] : ${message}\n`
+        );
+      } catch (e) {
+        // Ignore file write errors
+      }
+    } catch (e) {
+      // Don't break if log handling fails
+      console.error("Error handling renderer log:", e);
+    }
+  }
+);
+
+// Renderer log handler registered - all logs from modal windows will be forwarded here
 
 const createWindow = async () => {
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
@@ -104,14 +196,20 @@ const createWindow = async () => {
   });
   fsWatcher.setMainWindow(mainWindow);
 
+  // Set up 403 error handler to open login dialog
+  setOpenLoginDialogHandler(async (targetRoute?: string) => {
+    // Trigger the login dialog via renderer
+    mainWindow.webContents.send("open-login-dialog-403", {
+      targetRoute: targetRoute || "/bounds",
+    });
+  });
+
   // and load the index.html of the app.
   mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
   const userSettingsPath = path.join(
     app.getPath("userData"),
     ".networkSettings"
   );
-  // Open the DevTools.
-  // mainWindow.webContents.openDevTools();
 
   ipcMain.handle<Api>("watchNetworkSettings", async () => {
     const userSettingsPath = path.join(
@@ -140,14 +238,16 @@ const createWindow = async () => {
 
     const runArgs: string[] = ["--path", `"${scenePath}"`];
     if (args.useQAMask) runArgs.push("--useQAMask");
-    if (args.emissionCalcMethod) runArgs.push("--emissionCalcMethod", `"${args.emissionCalcMethod}"`);
+    if (args.emissionCalcMethod)
+      runArgs.push("--emissionCalcMethod", `"${args.emissionCalcMethod}"`);
     if (isNumber(args.emission))
       runArgs.push("--emission", args.emission.toString());
     Object.entries(args.outLayers).forEach(([outLayerKey, required]) => {
       if (required) runArgs.push(`--save${outLayerKey}`);
     });
     if (args.saveDirectory) runArgs.push("--out", `"${args.saveDirectory}"`);
-    if (args.layerNamePattern) runArgs.push("--layerPattern", `"${args.layerNamePattern}"`);
+    if (args.layerNamePattern)
+      runArgs.push("--layerPattern", `"${args.layerNamePattern}"`);
 
     // const _execFile = util.promisify(execFile);
     // const calcProcess = execFile(calculationProcessPath, runArgs, (err, stdout, stderr) => {
@@ -203,12 +303,409 @@ const createWindow = async () => {
     return fsWatcher.getState();
   });
 
+  ipcMain.handle<Api>("selectFolder", async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      properties: ["openDirectory"],
+    });
+    if (result.canceled || result.filePaths.length === 0) {
+      return null;
+    }
+    return result.filePaths[0];
+  });
+
+  ipcMain.handle<Api>("selectFile", async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      properties: ["openFile"],
+      filters: [
+        { name: "TIF Files", extensions: ["tif", "TIF"] },
+        { name: "All Files", extensions: ["*"] },
+      ],
+    });
+    if (result.canceled || result.filePaths.length === 0) {
+      return null;
+    }
+    return result.filePaths[0];
+  });
+
+  ipcMain.handle<Api>("scanFolder", async (_, folderPath: string) => {
+    const files: string[] = [];
+    const suggestedMapping: Record<string, USGSLayerType> = {};
+
+    if (!fs.existsSync(folderPath)) {
+      return { files: [] };
+    }
+
+    const items = fs.readdirSync(folderPath);
+    const layerTypes: USGSLayerType[] = [
+      "ST_TRAD",
+      "ST_ATRAN",
+      "ST_URAD",
+      "ST_DRAD",
+      "SR_B6",
+      "SR_B5",
+      "SR_B4",
+      "QA_PIXEL",
+    ];
+
+    for (const item of items) {
+      const itemPath = path.join(folderPath, item);
+      const stat = fs.statSync(itemPath);
+
+      if (stat.isFile() && (item.endsWith(".TIF") || item.endsWith(".tif"))) {
+        files.push(item);
+
+        // Попытка автоматического определения типа слоя
+        // Формат: {displayId}_{layerType}.TIF или {displayId}_T1_{layerType}.TIF
+        const fileName = item.replace(/\.(TIF|tif)$/, "");
+
+        // Проверяем паттерн _T1_{layerType}
+        const t1Match = fileName.match(/_T1_(.+)$/);
+        if (t1Match) {
+          const potentialType = t1Match[1] as USGSLayerType;
+          if (layerTypes.includes(potentialType)) {
+            suggestedMapping[item] = potentialType;
+            continue;
+          }
+        }
+
+        // Проверяем паттерн _{layerType} в конце
+        for (const layerType of layerTypes) {
+          if (fileName.endsWith(`_${layerType}`)) {
+            suggestedMapping[item] = layerType;
+            break;
+          }
+        }
+      }
+    }
+
+    return {
+      files,
+      suggestedMapping:
+        Object.keys(suggestedMapping).length > 0 ? suggestedMapping : undefined,
+    };
+  });
+
+  ipcMain.handle<Api>(
+    "addExternalFolder",
+    async (
+      _,
+      payload: {
+        folderPath: string;
+        fileMapping: Record<string, USGSLayerType>;
+        metadata?: {
+          displayId: string;
+          entityId?: string;
+          captureDate?: string;
+          source?: string;
+          city?: string;
+          displayName?: string;
+        };
+      }
+    ) => {
+      fsWatcher.addExternalFolder(
+        payload.folderPath,
+        payload.fileMapping,
+        payload.metadata
+      );
+    }
+  );
+
+  ipcMain.handle<Api>(
+    "openMappingDialog",
+    async (
+      _event,
+      payload: {
+        folderPath: string;
+        files: string[];
+        suggestedMapping?: Record<string, USGSLayerType>;
+      }
+    ): Promise<{
+      fileMapping: Record<string, USGSLayerType>;
+      metadata?: {
+        displayId: string;
+        entityId?: string;
+        captureDate?: string;
+        source?: string;
+        city?: string;
+        displayName?: string;
+      };
+    } | null> => {
+      return new Promise((resolve) => {
+        let isResolved = false;
+        const dialogWindow = new BrowserWindow({
+          parent: mainWindow,
+          modal: true,
+          titleBarStyle: "hidden",
+          width: 600,
+          height: 900,
+          resizable: true,
+          title: "Map Files and Add Metadata",
+          webPreferences: {
+            preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
+            webSecurity: false,
+            nodeIntegration: false,
+            contextIsolation: true,
+          },
+        });
+
+        // Функция для очистки и разрешения промиса
+        const cleanupAndResolve = (
+          result: {
+            fileMapping: Record<string, USGSLayerType>;
+            metadata?: {
+              displayId: string;
+              entityId?: string;
+              captureDate?: string;
+              source?: string;
+              city?: string;
+              displayName?: string;
+            };
+          } | null
+        ) => {
+          if (isResolved) return;
+          isResolved = true;
+
+          // Удаляем listener перед закрытием окна
+          try {
+            electronIpcMain.removeListener(
+              "mapping-dialog-result",
+              resultHandler
+            );
+          } catch (e) {
+            // Игнорируем ошибки при удалении listener
+            console.error("Error removing listener:", e);
+          }
+
+          // Закрываем окно, если оно еще не закрыто
+          try {
+            if (!dialogWindow.isDestroyed()) {
+              dialogWindow.close();
+            }
+          } catch (e) {
+            // Игнорируем ошибки при закрытии
+            console.error("Error closing window:", e);
+          }
+
+          resolve(result);
+        };
+
+        // Слушаем результат от диалога
+        const resultHandler = (
+          event: Electron.IpcMainEvent,
+          result: {
+            fileMapping: Record<string, USGSLayerType>;
+            metadata?: {
+              displayId: string;
+              entityId?: string;
+              captureDate?: string;
+              source?: string;
+              city?: string;
+              displayName?: string;
+            };
+          } | null
+        ) => {
+          // Проверяем, что результат пришел от правильного окна
+          if (event.sender === dialogWindow.webContents) {
+            cleanupAndResolve(result);
+          }
+        };
+
+        electronIpcMain.on("mapping-dialog-result", resultHandler);
+
+        // Передаем данные через hash в URL
+        const dialogData = {
+          folderPath: payload.folderPath,
+          files: payload.files,
+          suggestedMapping: payload.suggestedMapping,
+        };
+        const data = encodeURIComponent(JSON.stringify(dialogData));
+        dialogWindow.loadURL(
+          `${MAIN_WINDOW_WEBPACK_ENTRY}#mapping-dialog:${data}`
+        );
+
+        // Show window immediately
+        dialogWindow.show();
+
+        // добавляем горячую клавишу F12 для переключения DevTools
+        dialogWindow.webContents.on("before-input-event", (event, input) => {
+          if (
+            input.key === "F12" ||
+            (input.control && input.shift && input.key === "I")
+          ) {
+            if (dialogWindow.webContents.isDevToolsOpened()) {
+              dialogWindow.webContents.closeDevTools();
+            } else {
+              dialogWindow.webContents.openDevTools();
+            }
+          }
+        });
+
+        // Если окно закрыто без результата
+        dialogWindow.on("closed", () => {
+          cleanupAndResolve(null);
+        });
+      });
+    }
+  );
+
+  ipcMain.handle<Api>(
+    "openLoginDialog",
+    async (
+      _,
+      payload: {
+        username?: string;
+        token?: string;
+        autoLogin?: boolean;
+        targetRoute?: string;
+      }
+    ): Promise<{ username: string; token: string } | null> => {
+      const targetRoute = payload.targetRoute || "/bounds";
+
+      // Always show dialog immediately, even if we have stored credentials
+      // The dialog will handle auto-login and show "Checking permissions..." state
+      const storedCreds = store.get("userdata") as
+        | SettingsChema["userdata"]
+        | undefined;
+
+      return new Promise((resolve) => {
+        let isResolved = false;
+
+        // Always create and show dialog window immediately
+        const dialogWindow = new BrowserWindow({
+          parent: mainWindow,
+          modal: true,
+          titleBarStyle: "hidden",
+          width: 500,
+          height: 400,
+          resizable: true,
+          title: "USGS Authentication",
+          webPreferences: {
+            preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
+            webSecurity: false,
+          },
+        });
+
+        // Prepare data for dialog
+        const dialogData = {
+          username: payload.username || storedCreds?.username || "",
+          token: payload.token || storedCreds?.token || "",
+          autoLogin: payload.autoLogin ?? true,
+        };
+
+        // Передаем данные через hash в URL
+        const data = encodeURIComponent(JSON.stringify(dialogData));
+        dialogWindow.loadURL(
+          `${MAIN_WINDOW_WEBPACK_ENTRY}#login-dialog:${data}`
+        );
+
+        // Show window immediately
+        dialogWindow.show();
+
+        // добавляем горячую клавишу F12 для переключения DevTools
+        dialogWindow.webContents.on("before-input-event", (event, input) => {
+          if (
+            input.key === "F12" ||
+            (input.control && input.shift && input.key === "I")
+          ) {
+            if (dialogWindow.webContents.isDevToolsOpened()) {
+              dialogWindow.webContents.closeDevTools();
+            } else {
+              dialogWindow.webContents.openDevTools();
+            }
+          }
+        });
+
+        // Функция для очистки и разрешения промиса
+        const cleanupAndResolve = (
+          result: { username: string; token: string } | null
+        ) => {
+          if (isResolved) return;
+          isResolved = true;
+
+          // Удаляем listener перед закрытием окна
+          try {
+            electronIpcMain.removeListener(
+              "login-dialog-result",
+              resultHandler
+            );
+          } catch (e) {
+            console.error("Error removing listener:", e);
+          }
+
+          // Закрываем окно, если оно еще не закрыто
+          try {
+            if (!dialogWindow.isDestroyed()) {
+              dialogWindow.close();
+            }
+          } catch (e) {
+            console.error("Error closing window:", e);
+          }
+
+          resolve(result);
+        };
+
+        // Слушаем результат от диалога
+        const resultHandler = (
+          event: Electron.IpcMainEvent,
+          result: { username: string; token: string } | null
+        ) => {
+          // Проверяем, что результат пришел от правильного окна
+          if (event.sender === dialogWindow.webContents) {
+            if (result) {
+              // Проверяем права доступа
+              checkUserPermissons({
+                username: result.username,
+                token: result.token,
+              })
+                .then((response) => {
+                  const { data } = response || {};
+                  if (data?.data?.includes?.("download")) {
+                    // Сохраняем креды
+                    store.set("userdata", {
+                      username: result.username,
+                      token: result.token,
+                    });
+                    // Отправляем сообщение в renderer для обновления состояния
+                    mainWindow.webContents.send("login-success", {
+                      username: result.username,
+                      token: result.token,
+                      targetRoute,
+                    });
+                    cleanupAndResolve(result);
+                  } else {
+                    cleanupAndResolve(null);
+                  }
+                })
+                .catch((e) => {
+                  console.error("Error checking permissions:", e);
+                  cleanupAndResolve(null);
+                });
+            } else {
+              cleanupAndResolve(null);
+            }
+          }
+        };
+
+        electronIpcMain.on("login-dialog-result", resultHandler);
+
+        // Если окно закрыто без результата
+        dialogWindow.on("closed", () => {
+          cleanupAndResolve(null);
+        });
+      });
+    }
+  );
+
   /**
    * remember download url list and may be download immediately
    */
   ipcMain.handle<Api>(
     "addRepo",
-    async (_, { displayId, entityId, ds }: DownloadProps, alsoDownload: boolean) => {
+    async (
+      _,
+      { displayId, entityId, ds }: DownloadProps,
+      alsoDownload: boolean
+    ) => {
       const appdataPath = path.join(app.getPath("userData"), "localStorage");
       const scenePath = path.join(appdataPath, displayId);
       if (!fs.existsSync(scenePath)) {
@@ -253,62 +750,59 @@ const createWindow = async () => {
     }
   );
 
-  mainWindow.webContents.session.on(
-    "will-download",
-    (event, item, webContents) => {
-      const fn = item.getFilename().split(".TIF")[0];
-      const [dir, type] = fn.split("_T1_");
-      const sceneId = dir + "_T1";
-      // const sceneState = fsWatcher.getSceneState(sceneId);
-      const appdataPath = path.join(app.getPath("userData"), "localStorage");
-      const scenePath = path.join(appdataPath, sceneId);
-      // 'LC08_L2SP_142021_20220915_20220922_02_T1_QA_PIXEL.tif'
-      const layerPath = path.join(scenePath, item.getFilename());
-      const indexPath = path.join(scenePath, "index.json");
-      if (fs.existsSync(layerPath)) {
-        const index: ISceneState = JSON.parse(
-          fs.readFileSync(indexPath).toString()
-        );
-        const { size } = index.donwloadedFiles[type as USGSLayerType];
-        if (size !== fs.statSync(layerPath).size) {
-          fs.rmSync(layerPath);
+  mainWindow.webContents.session.on("will-download", (event, item) => {
+    const fn = item.getFilename().split(".TIF")[0];
+    const [dir, type] = fn.split("_T1_");
+    const sceneId = dir + "_T1";
+    // const sceneState = fsWatcher.getSceneState(sceneId);
+    const appdataPath = path.join(app.getPath("userData"), "localStorage");
+    const scenePath = path.join(appdataPath, sceneId);
+    // 'LC08_L2SP_142021_20220915_20220922_02_T1_QA_PIXEL.tif'
+    const layerPath = path.join(scenePath, item.getFilename());
+    const indexPath = path.join(scenePath, "index.json");
+    if (fs.existsSync(layerPath)) {
+      const index: ISceneState = JSON.parse(
+        fs.readFileSync(indexPath).toString()
+      );
+      const { size } = index.donwloadedFiles[type as USGSLayerType];
+      if (size !== fs.statSync(layerPath).size) {
+        fs.rmSync(layerPath);
+      } else {
+        event.preventDefault();
+        return;
+      }
+    }
+    item.setSavePath(layerPath);
+    const totalSize = item.getTotalBytes();
+    fsWatcher.setState(sceneId, (prev) => ({
+      ...prev,
+      donwloadedFiles: {
+        ...prev.donwloadedFiles,
+        [type]: {
+          ...prev.donwloadedFiles[type as USGSLayerType],
+          size: totalSize,
+        },
+      },
+    }));
+    item.on("updated", (event, state) => {
+      if (state === "interrupted") {
+        console.log("Download is interrupted but can be resumed");
+      } else if (state === "progressing") {
+        if (item.isPaused()) {
+          console.log("Download is paused");
         } else {
-          event.preventDefault();
-          return;
+          // console.log(`progress: ${item.getReceivedBytes() / totalSize}`);
         }
       }
-      item.setSavePath(layerPath);
-      const totalSize = item.getTotalBytes();
-      fsWatcher.setState(sceneId, (prev) => ({
-        ...prev,
-        donwloadedFiles: {
-          ...prev.donwloadedFiles,
-          [type]: {
-            ...prev.donwloadedFiles[type as USGSLayerType],
-            size: totalSize,
-          },
-        },
-      }));
-      item.on("updated", (event, state) => {
-        if (state === "interrupted") {
-          console.log("Download is interrupted but can be resumed");
-        } else if (state === "progressing") {
-          if (item.isPaused()) {
-            console.log("Download is paused");
-          } else {
-            // console.log(`progress: ${item.getReceivedBytes() / totalSize}`);
-          }
-        }
-      });
-      item.once("done", (event, state) => {
-        if (state === "completed") {
-          console.log("Download successfully");
-        } else {
-          console.log(`Download failed: ${state}`);
-        }
-      });
-    }
-  );
+    });
+    item.once("done", (event, state) => {
+      if (state === "completed") {
+        console.log("Download successfully");
+      } else {
+        console.log(`Download failed: ${state}`);
+      }
+    });
+  });
 
   if (fs.existsSync(userSettingsPath)) {
     // fs.readFile(userSettingsPath, (err, data) => {

@@ -29,20 +29,18 @@ import React, { ReactNode, useEffect, useMemo, useState } from "react";
 import styled, { css } from "styled-components";
 import {
   addSceneToRepo,
+  addExternalFolder,
   DisplayId,
   downloadScene,
   EmissionCalcMethod,
   ISceneState,
-  OutLayer,
   RunArgs,
   USGSLayerType,
   watchScenesState,
 } from "../../actions/main-actions";
-import { selectDownloadUrls } from "../../actions/selectors";
 import { useAppDispatch, useAppSelector } from "../../entry-points/app";
 import { useTypedNavigate } from "../mainWindow";
 import {
-  AddButton,
   AggregatedView,
   DetailsView,
   ExpandTrigger,
@@ -51,6 +49,7 @@ import {
   SceneList,
   SceneListItem,
 } from "./download-manager.styled";
+import { FABButton } from "./fab-button";
 import { useLazyGetSceneByIdQuery } from "../../actions/searchApi";
 import { SettingsChema } from "../../backend/settings-store";
 
@@ -79,17 +78,14 @@ const SceneStateView = ({
 }) => {
   const [expanded, setExpanded] = useState(false);
 
-  const urls = useAppSelector((state) => selectDownloadUrls(state, displayId));
   const progress = useMemo(() => {
     return getAggregatedProgress(state);
   }, [JSON.stringify(state)]);
   const isLoadRequired =
     state.isRepo &&
     Object.entries(state.donwloadedFiles).find(
-      ([_, x]) => !x.progress || x.progress < 1
+      ([, x]) => !x.progress || x.progress < 1
     );
-
-  const localMode = useAppSelector((state) => state.main.localMode);
 
   const isLoadPossible = state.isRepo;
 
@@ -155,7 +151,7 @@ const SceneStateView = ({
               : `downloading ${Math.round(progress * 100)}%`}
           </span>
         </ProgressView>
-        {isLoadRequired && !localMode && (
+        {isLoadRequired && (
           <ClickableIcon
             icon={faDownload}
             disable={!isLoadPossible}
@@ -616,20 +612,118 @@ const ConfirmDialog = ({
 };
 
 export const DownloadManager = () => {
-  const { scenes, loading } = useAppSelector((state) => state.main);
+  const { scenes } = useAppSelector((state) => state.main);
   const dispatch = useAppDispatch();
   const navigate = useTypedNavigate();
   const [initialFormState] = useFormState();
+
   useEffect(() => {
     dispatch(watchScenesState());
   }, [dispatch]);
   const toast = useToast();
+  const authorized = useAppSelector((state) => state.main.authorized);
   console.log({ scenes });
-  const localMode = useAppSelector((state) => state.main.localMode);
   console.log({ initialFormState });
   if (!initialFormState) {
     return null;
   }
+
+  const handleAddFromCatalog = async () => {
+    try {
+      const folderPath = await window.ElectronAPI.invoke.selectFolder();
+      if (!folderPath) {
+        return;
+      }
+
+      try {
+        // Сканируем папку для получения списка файлов
+        const scanResult = await window.ElectronAPI.invoke.scanFolder(
+          folderPath
+        );
+
+        if (scanResult.files.length === 0) {
+          toast({
+            title: "No TIF files found",
+            description: "The selected folder does not contain any TIF files",
+            status: "warning",
+            duration: 3000,
+            isClosable: true,
+          });
+          return;
+        }
+
+        // Открываем модальное окно Electron
+        const result = await window.ElectronAPI.invoke.openMappingDialog({
+          folderPath,
+          files: scanResult.files,
+          suggestedMapping: scanResult.suggestedMapping,
+        });
+
+        if (result) {
+          // Сохраняем результат
+          const action = await dispatch(
+            addExternalFolder({
+              folderPath,
+              fileMapping: result.fileMapping,
+              metadata: result.metadata,
+            })
+          );
+
+          if (isFulfilled(action)) {
+            toast({
+              title: "Folder added successfully",
+              description: "The folder has been added to the repository",
+              status: "success",
+              duration: 3000,
+              isClosable: true,
+            });
+          } else {
+            toast({
+              title: "Error",
+              description: "Failed to add folder",
+              status: "error",
+              duration: 3000,
+              isClosable: true,
+            });
+          }
+        }
+      } catch (e) {
+        console.error("Error scanning folder:", e);
+        toast({
+          title: "Error",
+          description: "Failed to scan folder",
+          status: "error",
+          duration: 3000,
+          isClosable: true,
+        });
+      }
+    } catch (e) {
+      console.error("Error selecting folder:", e);
+      toast({
+        title: "Error",
+        description: "Failed to select folder",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+    }
+  };
+
+  const handleFindInUSGS = async () => {
+    if (authorized) {
+      navigate("/bounds");
+    } else {
+      // Open login dialog
+      const result = await window.ElectronAPI.invoke.openLoginDialog({
+        autoLogin: true,
+        targetRoute: "/bounds",
+      });
+      if (result) {
+        // Navigation will be handled by login-success message
+      }
+    }
+  };
+
   return (
     <>
       <Button
@@ -675,17 +769,10 @@ export const DownloadManager = () => {
           </SceneList>
         )}
       </ConfirmDialog>
-      <AddButton
-        disabled={localMode}
-        onClick={() => {
-          if (localMode) {
-            return;
-          }
-          navigate("/bounds");
-        }}
-      >
-        +
-      </AddButton>
+      <FABButton
+        onCatalogClick={handleAddFromCatalog}
+        onExplorerClick={handleFindInUSGS}
+      />
     </>
   );
 };

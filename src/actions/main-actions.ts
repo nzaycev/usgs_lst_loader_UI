@@ -14,6 +14,13 @@ export type USGSLayerType =
   | "SR_B4"
   | "QA_PIXEL";
 
+export interface ISceneMetadata {
+  captureDate?: string;
+  source?: string;
+  city?: string;
+  displayName?: string;
+}
+
 export interface ISceneState {
   isRepo: boolean; // was it added by app or manually
   scenePath: string;
@@ -30,6 +37,7 @@ export interface ISceneState {
   >;
   calculation: number;
   calculated: boolean;
+  metadata?: ISceneMetadata;
 }
 interface IMainState {
   loading: boolean;
@@ -37,7 +45,6 @@ interface IMainState {
   lastAvailableDate?: Date;
   scenes: Partial<Record<DisplayId, ISceneState>>;
   authorized: boolean;
-  localMode: boolean;
   searchValue: string;
   searchEnabled: boolean;
 }
@@ -47,7 +54,6 @@ const initialState: IMainState = {
   wait: false,
   scenes: {},
   authorized: false,
-  localMode: false,
   searchValue: "",
   searchEnabled: false,
 };
@@ -91,6 +97,31 @@ export const downloadScene = createAsyncThunk<
   } catch (e) {
     console.error(e);
     thunkApi.rejectWithValue(e);
+  }
+});
+
+export const addExternalFolder = createAsyncThunk<
+  void,
+  {
+    folderPath: string;
+    fileMapping: Record<string, USGSLayerType>;
+    metadata?: {
+      displayId: string;
+      entityId?: string;
+      captureDate?: string;
+      source?: string;
+      city?: string;
+      displayName?: string;
+    };
+  }
+>("scenes/addExternalFolder", async (payload, thunkApi) => {
+  try {
+    await window.ElectronAPI.invoke.addExternalFolder(payload);
+    // Обновляем состояние после добавления
+    await thunkApi.dispatch(watchScenesState());
+  } catch (e) {
+    console.error(e);
+    return thunkApi.rejectWithValue(e);
   }
 });
 
@@ -142,9 +173,6 @@ const mainActions = createSlice({
     },
     setDate(state, action: PayloadAction<string>) {
       state.lastAvailableDate = new Date(action.payload);
-    },
-    setLocalState(state) {
-      state.localMode = true
     },
     setFileProgress(
       state,
