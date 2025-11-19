@@ -1,9 +1,9 @@
-import { Box, CloseButton, Link, Spinner, useToast } from "@chakra-ui/react";
+import { CloseButton, Link, Spinner } from "@chakra-ui/react";
 import { faBan, faWifi } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import React, { ReactNode, useCallback, useEffect, useState } from "react";
+import React, { ReactNode, useEffect, useState } from "react";
 import styled, { keyframes } from "styled-components";
-import { useAppDispatch, useAppSelector } from "../../entry-points/app";
+import { useAppDispatch, useAppSelector } from "../app";
 import { networkSettingsSlice } from "../network-settings/network-settings-state";
 import { NetworkState, testNetwork } from "./network-state";
 

@@ -26,12 +26,14 @@
  * ```
  */
 
-import './index.css';
-import './fonts-load.css';
-import './app.tsx';
+import "../ui/app.tsx";
+import "../ui/fonts-load.css";
+import "../ui/index.css";
 
 // const { ipcRenderer } = require('electron')
 
 // console.log('👋 ', ipcRenderer)
 
-console.log('👋 This message is being logged by "renderer.js", included via webpack');
+console.log(
+  '👋 This message is being logged by "renderer.js", included via webpack'
+);

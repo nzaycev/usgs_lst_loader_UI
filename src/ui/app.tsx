@@ -1,9 +1,9 @@
 import { configureStore } from "@reduxjs/toolkit";
 import React from "react";
 import ReactDOM from "react-dom";
-import { MainWindow } from "../ui/mainWindow";
-import { MappingDialogWindowApp } from "../ui/mapping-dialog-window";
-import { LoginDialogWindowApp } from "../ui/login-dialog-window";
+import { MainWindow } from "./mainWindow";
+import { MappingDialogWindowApp } from "./mapping-dialog-window";
+import { LoginDialogWindowApp } from "./login-dialog-window";
 import logger from "redux-logger";
 import {
   Provider,
@@ -16,11 +16,11 @@ import { searchApi } from "../actions/searchApi";
 import { MapProvider } from "react-map-gl";
 
 import { ChakraProvider } from "@chakra-ui/react";
-import { testNetworkApi } from "../ui/network-test/network-test-request";
-import { NetworkTestWrapper } from "../ui/network-test/network-test-wrapper";
-import { networkSlice } from "../ui/network-test/network-state";
-import { NetworkSettingsWrapper } from "../ui/network-settings/network-settings-wrapper";
-import { networkSettingsSlice } from "../ui/network-settings/network-settings-state";
+import { testNetworkApi } from "./network-test/network-test-request";
+import { NetworkTestWrapper } from "./network-test/network-test-wrapper";
+import { networkSlice } from "./network-test/network-state";
+import { NetworkSettingsWrapper } from "./network-settings/network-settings-wrapper";
+import { networkSettingsSlice } from "./network-settings/network-settings-state";
 
 function render() {
   // Проверяем, является ли это окном диалога

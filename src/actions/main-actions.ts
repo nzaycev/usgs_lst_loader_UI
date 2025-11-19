@@ -1,7 +1,7 @@
 import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { getDownloadDS } from "../backend/usgs-api";
-import { RootState } from "../entry-points/app";
 import { ParsedPath } from "../tools/ElectronApi";
+import { RootState } from "../ui/app";
 
 export type DisplayId = string;
 export type USGSLayerType =
@@ -61,7 +61,7 @@ const initialState: IMainState = {
 export const watchScenesState = createAsyncThunk<
   Partial<Record<string, ISceneState>>,
   void
->("scenes/watch", async (_, thunkApi) => {
+>("scenes/watch", async (_) => {
   const state = await window.ElectronAPI.invoke.watch();
   return state;
 });
@@ -196,8 +196,7 @@ const mainActions = createSlice({
       state.scenes[action.payload.displayId] = action.payload.state;
     },
     add(state, action: PayloadAction<FsActionPayload>) {
-      const { isOutFile, isIndex, scenePath, sceneLayer } =
-        action.payload.parsedPath;
+      const { isOutFile, isIndex, sceneLayer } = action.payload.parsedPath;
       if (isIndex) {
         // TODO:
         console.log({ indexContent: action.payload.indexContent });
@@ -233,7 +232,7 @@ const mainActions = createSlice({
         },
       };
     },
-    unlink(state, action: PayloadAction<FsActionPayload>) {
+    unlink() {
       return;
     },
     unlinkDir(state, action: PayloadAction<FsActionPayload>) {
@@ -264,7 +263,7 @@ const mainActions = createSlice({
       // .addCase(downloadScene.pending, (state) => {
       //   state.scenes[]
       // })
-      .addCase(addSceneToRepo.pending, (state, action) => {
+      .addCase(addSceneToRepo.pending, (state) => {
         state.wait = true;
         // state.scenes[action.meta.arg.displayId] = {
         //   stillLoading: true,

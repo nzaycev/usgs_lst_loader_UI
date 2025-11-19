@@ -1,24 +1,3 @@
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import React, { useMemo } from "react";
-
-import {
-  faRefresh,
-  faFolderOpen,
-  faTimes,
-  faHouseChimney,
-  faWifiStrong,
-  faWifi,
-  faCircleDown,
-  faSearch,
-  faCross,
-  faTimesCircle,
-} from "@fortawesome/free-solid-svg-icons";
-import { useTypedNavigate } from "./mainWindow";
-import { useDispatch } from "react-redux";
-import { networkSettingsSlice } from "./network-settings/network-settings-state";
-import styled from "styled-components";
-import { useAppDispatch, useAppSelector } from "../entry-points/app";
-import { mainActions } from "../actions/main-actions";
 import {
   Flex,
   Input,
@@ -26,6 +5,25 @@ import {
   InputLeftElement,
   InputRightElement,
 } from "@chakra-ui/react";
+import {
+  faCircleDown,
+  faFolderOpen,
+  faHouseChimney,
+  faRefresh,
+  faSearch,
+  faTimes,
+  faTimesCircle,
+  faWifiStrong,
+} from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import React, { useMemo } from "react";
+import { useDispatch } from "react-redux";
+import styled from "styled-components";
+import { mainActions } from "../actions/main-actions";
+import { useAppDispatch, useAppSelector } from "./app";
+import { useTypedNavigate } from "./mainWindow";
+import { networkSettingsSlice } from "./network-settings/network-settings-state";
+
 // import { ElectonAPI } from "../tools/ElectronApi";
 
 // const { ipcRenderer } = window.require('electron')

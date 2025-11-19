@@ -1,27 +1,12 @@
+import { Spinner, useToast } from "@chakra-ui/react";
+import { faDatabase } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import React, { useEffect } from "react";
 import styled, { css } from "styled-components";
+import { addSceneToRepo } from "../actions/main-actions";
 import { useSearchScenesQuery } from "../actions/searchApi";
+import { useAppDispatch, useAppSelector } from "./app";
 import { useTypedLocation } from "./mainWindow";
-import { useAppDispatch, useAppSelector } from "../entry-points/app";
-import { addSceneToRepo, watchScenesState } from "../actions/main-actions";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-  faCircleCheck,
-  faDatabase,
-  faSearch,
-  faStore,
-  faTimesCircle,
-} from "@fortawesome/free-solid-svg-icons";
-import {
-  Code,
-  Flex,
-  Input,
-  InputGroup,
-  InputLeftElement,
-  InputRightElement,
-  Spinner,
-  useToast,
-} from "@chakra-ui/react";
 import { useHelperSearch } from "./SystemHelper";
 
 export const DateList = () => {

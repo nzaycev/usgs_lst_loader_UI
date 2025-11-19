@@ -1,5 +1,5 @@
 import { createSelector } from "@reduxjs/toolkit";
-import { RootState } from "../entry-points/app";
+import { RootState } from "../ui/app";
 import { DisplayId } from "./main-actions";
 
 export const selectDownloadUrls = createSelector(

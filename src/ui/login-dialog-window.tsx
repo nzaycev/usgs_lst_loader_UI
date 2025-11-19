@@ -1,14 +1,14 @@
 import {
   Button,
+  ChakraProvider,
   Flex,
   FormControl,
   FormLabel,
   Input,
-  useToast,
   Spinner,
+  useToast,
 } from "@chakra-ui/react";
 import React, { useEffect, useState } from "react";
-import { ChakraProvider } from "@chakra-ui/react";
 import { SettingsChema } from "../backend/settings-store";
 import { checkUserPermissons } from "../backend/usgs-api";
 import { DialogHeader } from "./dialog-header";
@@ -17,7 +17,7 @@ const LoginDialogWindow = () => {
   const toast = useToast();
   const [username, setUsername] = useState("");
   const [token, setToken] = useState("");
-  const [autoLogin, setAutoLogin] = useState(false);
+  const [, setAutoLogin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [checkingPermissions, setCheckingPermissions] = useState(false);
 
@@ -88,7 +88,6 @@ const LoginDialogWindow = () => {
     } else {
       setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleLogin = async () => {

@@ -1,6 +1,6 @@
-import React, { useRef, useState, useEffect } from "react";
 import mapboxgl from "mapbox-gl"; // eslint-disable-line import/no-webpack-loader-syntax
 import "mapbox-gl/dist/mapbox-gl.css";
+import React, { useEffect, useRef, useState } from "react";
 import styled from "styled-components";
 
 mapboxgl.accessToken =
@@ -34,7 +34,7 @@ export const MapContainer = React.forwardRef<
     ref,
     () => ({
       setData: (data: any) => setMapData(data),
-      getBounds: () => map.current.getBounds()
+      getBounds: () => map.current.getBounds(),
     }),
     []
   );
@@ -58,7 +58,9 @@ export const MapContainer = React.forwardRef<
       if (!mapCurrent()) return;
       console.log("set onclick");
       mapCurrent().on("click", props.onClick);
-    } catch (e) {}
+    } catch (e) {
+      /** noop */
+    }
   };
 
   const setOnMouseMove = async () => {
@@ -95,7 +97,7 @@ export const MapContainer = React.forwardRef<
 
   useEffect(() => {
     if (!props.onClick) return;
-    let onClick = props.onClick;
+    const onClick = props.onClick;
     setOnClick();
     return () => {
       if (!mapCurrent()) return;
@@ -105,7 +107,7 @@ export const MapContainer = React.forwardRef<
 
   useEffect(() => {
     if (!props.mouseMove) return;
-    let mouseMove = props.mouseMove;
+    const mouseMove = props.mouseMove;
     setOnMouseMove();
     return () => {
       if (!mapCurrent()) return;
@@ -125,7 +127,7 @@ export const MapContainer = React.forwardRef<
     map.current.setData = (data: any) =>
       map.current.getSource("my-data").setData(data);
 
-    map.current.on("move", (e: any) => {
+    map.current.on("move", () => {
       if (map.current) return;
       setLng(map.current.getCenter().lng.toFixed(4));
       setLat(map.current.getCenter().lat.toFixed(4));
@@ -155,7 +157,9 @@ export const MapContainer = React.forwardRef<
       }
     };
     updateData();
-    return () => {};
+    return () => {
+      /** noop */
+    };
   }, [props.geoJsonData]);
 
   return <_MapContainer ref={mapContainer} className="map-container" />;

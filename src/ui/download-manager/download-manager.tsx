@@ -24,12 +24,11 @@ import {
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { isFulfilled } from "@reduxjs/toolkit";
 import { noop } from "lodash";
-
 import React, { ReactNode, useEffect, useMemo, useState } from "react";
 import styled, { css } from "styled-components";
 import {
-  addSceneToRepo,
   addExternalFolder,
+  addSceneToRepo,
   DisplayId,
   downloadScene,
   EmissionCalcMethod,
@@ -38,7 +37,9 @@ import {
   USGSLayerType,
   watchScenesState,
 } from "../../actions/main-actions";
-import { useAppDispatch, useAppSelector } from "../../entry-points/app";
+import { useLazyGetSceneByIdQuery } from "../../actions/searchApi";
+import { SettingsChema } from "../../backend/settings-store";
+import { useAppDispatch, useAppSelector } from "../app";
 import { useTypedNavigate } from "../mainWindow";
 import {
   AggregatedView,
@@ -50,8 +51,6 @@ import {
   SceneListItem,
 } from "./download-manager.styled";
 import { FABButton } from "./fab-button";
-import { useLazyGetSceneByIdQuery } from "../../actions/searchApi";
-import { SettingsChema } from "../../backend/settings-store";
 
 const ProgressView: React.FC<{ progress: number }> = ({
   children,

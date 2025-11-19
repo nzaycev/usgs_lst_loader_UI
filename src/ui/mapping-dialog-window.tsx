@@ -1,5 +1,6 @@
 import {
   Button,
+  ChakraProvider,
   Flex,
   FormControl,
   FormLabel,
@@ -9,7 +10,6 @@ import {
   useToast,
 } from "@chakra-ui/react";
 import React, { useEffect, useState } from "react";
-import { ChakraProvider } from "@chakra-ui/react";
 import { USGSLayerType } from "../actions/main-actions";
 import { DialogHeader } from "./dialog-header";
 
@@ -20,9 +20,6 @@ interface MappingDialogWindowProps {
 const MappingDialogWindow: React.FC<MappingDialogWindowProps> = ({ toast }) => {
   const [folderPath, setFolderPath] = useState("");
   const [files, setFiles] = useState<string[]>([]);
-  const [suggestedMapping, setSuggestedMapping] = useState<
-    Record<string, USGSLayerType> | undefined
-  >();
 
   // Структура маппинга: Record<USGSLayerType, string> - для каждого обязательного слоя выбирается файл
   const [fileMappings, setFileMappings] = useState<
@@ -37,6 +34,7 @@ const MappingDialogWindow: React.FC<MappingDialogWindowProps> = ({ toast }) => {
     SR_B4: "",
     QA_PIXEL: "",
   });
+
   const [displayId, setDisplayId] = useState("");
   const [entityId, setEntityId] = useState("");
   const [captureDate, setCaptureDate] = useState("");
@@ -70,7 +68,6 @@ const MappingDialogWindow: React.FC<MappingDialogWindowProps> = ({ toast }) => {
         };
         setFolderPath(data.folderPath);
         setFiles(data.files);
-        setSuggestedMapping(data.suggestedMapping);
 
         // Инициализируем маппинги
         const initialMappings: Record<USGSLayerType, string> = {

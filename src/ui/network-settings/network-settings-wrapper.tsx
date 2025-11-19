@@ -17,21 +17,21 @@ import {
   Spinner,
   Stack,
   Switch,
-  useToast,
   Text,
+  useToast,
 } from "@chakra-ui/react";
 import { isEqual } from "lodash";
 import React, { useEffect, useState } from "react";
 import styled from "styled-components";
-import { useAppDispatch, useAppSelector } from "../../entry-points/app";
-import { NetworkState, testNetwork } from "../network-test/network-state";
+import { SettingsChema } from "../../backend/settings-store";
+import { useAppDispatch, useAppSelector } from "../app";
+import { testNetwork } from "../network-test/network-state";
 import {
   INetworkSettings,
   networkSettingsSlice,
   readSettings,
   writeSettings,
 } from "./network-settings-state";
-import { SettingsChema } from "../../backend/settings-store";
 
 type DeepPartial<T> = T extends object
   ? {

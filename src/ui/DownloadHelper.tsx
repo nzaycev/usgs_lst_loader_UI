@@ -115,7 +115,7 @@ const startDownloading = ({
     console.log("on_socket", data);
     setLoadingState((loadingState) => {
       if (data.step === DOWNLOAD_STEPS.READY) {
-        window.ElectronAPI.invoke.openExplorer(data.fileName)
+        window.ElectronAPI.invoke.openExplorer(data.fileName);
         stopDownloading(null, setLoadingState);
       }
       return {
@@ -127,9 +127,10 @@ const startDownloading = ({
   // fetch(
   //   `http://127.0.0.1:5000/download_scene?entityId=${props.entityId}&displayId=${props.displayId}`
   // )
-  axios.post(getUrl('downloadScene'), {
-    ...props
-  })
+  axios
+    .post(getUrl("downloadScene"), {
+      ...props,
+    })
     // .then((x) => x.json())
     .then((x: any) => {
       console.log(x);

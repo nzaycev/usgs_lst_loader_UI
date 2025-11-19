@@ -1,28 +1,26 @@
 import React, { useEffect } from "react";
-import { SystemHelper } from "./SystemHelper";
-
-import { BoundsSelector, ISelectionCoordinates } from "./BoundsSelector";
-import { DateList } from "./DateList";
 import {
   HashRouter,
-  Route,
-  Navigate,
-  Routes,
-  PathRouteProps,
-  useNavigate,
-  useLocation,
   Location,
+  Navigate,
+  PathRouteProps,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
 } from "react-router-dom";
 import {
   mainActions,
   setDate,
   watchScenesState,
 } from "../actions/main-actions";
-import { useAppDispatch, useAppSelector } from "../entry-points/app";
-import { DownloadManager } from "./download-manager/download-manager";
-import { checkDates } from "../backend/usgs-api";
 import { SettingsChema } from "../backend/settings-store";
-import { checkUserPermissons } from "../backend/usgs-api";
+import { checkDates, checkUserPermissons } from "../backend/usgs-api";
+import { useAppDispatch, useAppSelector } from "./app";
+import { BoundsSelector, ISelectionCoordinates } from "./BoundsSelector";
+import { DateList } from "./DateList";
+import { DownloadManager } from "./download-manager/download-manager";
+import { SystemHelper } from "./SystemHelper";
 
 interface AppRoutes {
   "/auth": void;
@@ -151,22 +149,12 @@ const MainWindowContent = () => {
         <TypedRoute
           path="/bounds"
           element={
-            authorized ? (
-              <BoundsSelector />
-            ) : (
-              <Navigate to="/" replace />
-            )
+            authorized ? <BoundsSelector /> : <Navigate to="/" replace />
           }
         />
         <TypedRoute
           path="/date_list"
-          element={
-            authorized ? (
-              <DateList />
-            ) : (
-              <Navigate to="/" replace />
-            )
-          }
+          element={authorized ? <DateList /> : <Navigate to="/" replace />}
         />
         <TypedRoute path="/" element={<DownloadManager />} />
         <TypedRoute path="*" element={<Navigate to="/" replace />} />
