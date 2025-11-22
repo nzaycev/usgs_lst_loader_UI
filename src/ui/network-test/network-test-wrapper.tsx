@@ -1,5 +1,5 @@
-import { CloseButton, Link, Spinner } from "@chakra-ui/react";
-import { Wifi, WifiOff } from "lucide-react";
+import { CloseButton, Link } from "@chakra-ui/react";
+import { WifiOff } from "lucide-react";
 import React, { ReactNode, useEffect, useState } from "react";
 import { useAppDispatch, useAppSelector } from "../app";
 import { networkSettingsSlice } from "../network-settings/network-settings-state";
@@ -8,7 +8,7 @@ import { NetworkState, testNetwork } from "./network-state";
 export const NetworkTestWrapper: React.FC = ({ children }) => {
   const { networkState } = useAppSelector((state) => state.network);
   const dispatch = useAppDispatch();
-  const [opened, setOpened] = useState(true);
+  const [opened, setOpened] = useState(false);
 
   const renderMessage = ({
     title,
@@ -24,24 +24,6 @@ export const NetworkTestWrapper: React.FC = ({ children }) => {
       </>
     );
   };
-
-  const renderDefault = renderMessage({
-    title: (
-      <>
-        network state <Spinner />
-      </>
-    ),
-    message: "network state is checking",
-  });
-
-  const renderSuccess = renderMessage({
-    title: (
-      <>
-        network state <Wifi size={18} className="inline" />
-      </>
-    ),
-    message: "network state is ok",
-  });
 
   const renderError = renderMessage({
     title: (
@@ -66,8 +48,8 @@ export const NetworkTestWrapper: React.FC = ({ children }) => {
   }, [dispatch]);
 
   useEffect(() => {
-    setOpened(true);
-    if (networkState === NetworkState.Stable) {
+    if (networkState === NetworkState.Unstable) {
+      setOpened(true);
       setTimeout(() => setOpened(false), 3000);
     }
   }, [networkState]);
@@ -91,8 +73,6 @@ export const NetworkTestWrapper: React.FC = ({ children }) => {
           className="absolute right-3"
         />
         {networkState === NetworkState.Unstable && renderError}
-        {networkState === NetworkState.Stable && renderSuccess}
-        {networkState === NetworkState.Unknown && renderDefault}
       </div>
       <style>{`
         @keyframes slideUp {

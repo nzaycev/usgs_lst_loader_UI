@@ -1,31 +1,14 @@
-import { Copy, Minus, Satellite, Square, Wifi, X } from "lucide-react";
+import { Copy, Minus, Satellite, Square, Wifi, WifiOff, X } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
-import { useDispatch } from "react-redux";
 import { mainActions } from "../actions/main-actions";
 import { useAppDispatch, useAppSelector } from "./app";
-import { networkSettingsSlice } from "./network-settings/network-settings-state";
+import { NetworkState } from "./network-test/network-state";
 
 // import { ElectonAPI } from "../tools/ElectonApi";
 
 // const { ipcRenderer } = window.require('electron')
 
-const useIsLoading = () => {
-  const scenes = useAppSelector((state) => state.main.scenes);
-  return useMemo(() => {
-    for (const i in scenes) {
-      const scene = scenes[i];
-      for (const fileId in scene.donwloadedFiles) {
-        if (
-          scene.donwloadedFiles[fileId as keyof typeof scene.donwloadedFiles]
-            .progress !== 1
-        ) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }, [scenes]);
-};
+// вроде как проверка наличия загрузок, но кривая
 
 export const useHelperSearch = () => {
   const searchEnabled = useAppSelector((state) => state.main.searchEnabled);
@@ -43,10 +26,15 @@ export const useHelperSearch = () => {
   };
 };
 
+type UsgsApiStatus = {
+  auth: "guest" | "authorizing" | "authorized";
+  username?: string;
+};
+
 export const SystemHelper = () => {
-  const dispatch = useDispatch();
-  const isLoading = useIsLoading();
   const [isMaximized, setIsMaximized] = useState(false);
+  const [usgsStatus, setUsgsStatus] = useState<UsgsApiStatus | null>(null);
+  const networkState = useAppSelector((state) => state.network.networkState);
 
   // Check window state on mount and after maximize/minimize
   useEffect(() => {
@@ -61,6 +49,21 @@ export const SystemHelper = () => {
     const interval = setInterval(checkMaximized, 100);
 
     return () => clearInterval(interval);
+  }, []);
+
+  // Load USGS API status and listen for changes
+  useEffect(() => {
+    const loadStatus = async () => {
+      const status = await window.ElectronAPI.invoke.usgsGetStatus();
+      setUsgsStatus(status);
+    };
+    loadStatus();
+
+    const handleStatusChange = (_event: any, newStatus: UsgsApiStatus) => {
+      setUsgsStatus(newStatus);
+    };
+
+    window.ElectronAPI.on.usgsApiStatusChange(handleStatusChange);
   }, []);
 
   const handleMinimize = async () => {
@@ -109,20 +112,49 @@ export const SystemHelper = () => {
         className="flex items-center h-full"
         style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
       >
+        {/* Network status from network-test system */}
         <div className="flex items-center gap-1.5 mr-1 px-2 h-full">
-          <Wifi
-            size={12}
-            className={isLoading ? "text-green-400" : "text-gray-400"}
-          />
+          {networkState === NetworkState.Stable ? (
+            <Wifi size={12} className="text-green-400" />
+          ) : networkState === NetworkState.Unstable ? (
+            <WifiOff size={12} className="text-red-400" />
+          ) : (
+            <Wifi size={12} className="text-gray-400" />
+          )}
           <span className="text-[10px] text-gray-400">
-            {isLoading ? "Loading" : "Ready"}
+            {networkState === NetworkState.Stable
+              ? "online"
+              : networkState === NetworkState.Unstable
+              ? "offline"
+              : "checking"}
           </span>
         </div>
+        {/* USGS auth status */}
+        {usgsStatus && (
+          <div className="flex items-center gap-1.5 mr-1 px-2 h-full">
+            <div
+              className={`w-2 h-2 rounded-full ${
+                usgsStatus.auth === "authorized"
+                  ? "bg-green-400"
+                  : usgsStatus.auth === "authorizing"
+                  ? "bg-yellow-400"
+                  : "bg-gray-400"
+              }`}
+            />
+            <span className="text-[10px] text-gray-400">
+              {usgsStatus.auth === "authorized" && usgsStatus.username
+                ? usgsStatus.username
+                : usgsStatus.auth}
+            </span>
+          </div>
+        )}
         <button
           title="Settings"
           className="h-full hover:bg-gray-700/50 transition-colors flex items-center justify-center"
           style={{ width: `${buttonWidth}px` }}
-          onClick={() => dispatch(networkSettingsSlice.actions.openSettings())}
+          onClick={async () => {
+            await window.ElectronAPI.invoke.openSettingsDialog();
+          }}
         >
           <Wifi size={12} className="text-gray-400" />
         </button>

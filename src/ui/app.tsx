@@ -1,32 +1,36 @@
+import { ChakraProvider } from "@chakra-ui/react";
 import { configureStore } from "@reduxjs/toolkit";
 import React from "react";
 import ReactDOM from "react-dom";
-import { MainWindow } from "./mainWindow";
-import { MappingDialogWindowApp } from "./mapping-dialog-window";
-import { LoginDialogWindowApp } from "./login-dialog-window";
-import logger from "redux-logger";
+import { MapProvider } from "react-map-gl";
 import {
   Provider,
   TypedUseSelectorHook,
-  useSelector,
   useDispatch,
+  useSelector,
 } from "react-redux";
+import logger from "redux-logger";
 import { mainActions } from "../actions/main-actions";
+import { searchSceneDialogSlice } from "../actions/search-scene-dialog-slice";
 import { searchApi } from "../actions/searchApi";
-import { MapProvider } from "react-map-gl";
-
-import { ChakraProvider } from "@chakra-ui/react";
+import { LoginDialogWindowApp } from "./login-dialog-window";
+import { MainWindow } from "./mainWindow";
+import { MappingDialogWindowApp } from "./mapping-dialog-window";
+import { networkSettingsSlice } from "./network-settings/network-settings-state";
+import { NetworkSettingsWrapper } from "./network-settings/network-settings-wrapper";
+import { networkSlice } from "./network-test/network-state";
 import { testNetworkApi } from "./network-test/network-test-request";
 import { NetworkTestWrapper } from "./network-test/network-test-wrapper";
-import { networkSlice } from "./network-test/network-state";
-import { NetworkSettingsWrapper } from "./network-settings/network-settings-wrapper";
-import { networkSettingsSlice } from "./network-settings/network-settings-state";
+import { SearchSceneDialogWindowApp } from "./search-scene-dialog-window";
+import { SettingsDialogWindowApp } from "./settings-dialog-window";
 
 function render() {
   // Проверяем, является ли это окном диалога
   const hash = window.location.hash;
   const isMappingDialog = hash.startsWith("#mapping-dialog:");
   const isLoginDialog = hash.startsWith("#login-dialog:");
+  const isSearchSceneDialog = hash.startsWith("#search-scene-dialog:");
+  const isSettingsDialog = hash.startsWith("#settings-dialog:");
 
   try {
     if (isMappingDialog) {
@@ -39,6 +43,18 @@ function render() {
       // Рендерим только диалог авторизации без Redux и других провайдеров
       ReactDOM.render(
         <LoginDialogWindowApp />,
+        document.getElementById("root")
+      );
+    } else if (isSearchSceneDialog) {
+      // Рендерим диалог поиска сцен (bounds + date_list)
+      ReactDOM.render(
+        <SearchSceneDialogWindowApp />,
+        document.getElementById("root")
+      );
+    } else if (isSettingsDialog) {
+      // Рендерим только диалог настроек без Redux и других провайдеров
+      ReactDOM.render(
+        <SettingsDialogWindowApp />,
         document.getElementById("root")
       );
     } else {
@@ -62,14 +78,14 @@ function render() {
     console.error("Error during render:", error);
     const rootElement = document.getElementById("root");
     if (rootElement) {
-    ReactDOM.render(
+      ReactDOM.render(
         <div style={{ padding: "20px", color: "red" }}>
           <h2>Render Error</h2>
           <pre>{JSON.stringify(error, null, 2)}</pre>
           <pre>{error instanceof Error ? error.stack : String(error)}</pre>
         </div>,
         rootElement
-    );
+      );
     }
   }
 }
@@ -87,6 +103,7 @@ export const store = configureStore({
     [networkSettingsSlice.name]: networkSettingsSlice.reducer,
     [searchApi.reducerPath]: searchApi.reducer,
     [testNetworkApi.reducerPath]: testNetworkApi.reducer,
+    searchSceneDialog: searchSceneDialogSlice.reducer,
   },
 });
 

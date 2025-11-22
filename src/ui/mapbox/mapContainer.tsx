@@ -25,7 +25,12 @@ export const MapContainer = React.forwardRef<
   const mapCurrent = () => map.current;
 
   const setMapData = (data: any) => {
-    mapCurrent()?.getSource("my-data")?.setData(data);
+    const map = mapCurrent();
+    if (!map) return;
+    const source = map.getSource("my-data");
+    if (source && source.type === "geojson") {
+      source.setData(data);
+    }
   };
 
   React.useImperativeHandle(
@@ -33,6 +38,7 @@ export const MapContainer = React.forwardRef<
     () => ({
       setData: (data: any) => setMapData(data),
       getBounds: () => map.current.getBounds(),
+      resize: () => map.current?.resize(),
     }),
     []
   );
@@ -144,21 +150,34 @@ export const MapContainer = React.forwardRef<
   }, []);
 
   useEffect(() => {
-    if (!props.geoJsonData) return;
+    if (!props.geoJsonData) {
+      // Clear data if geoJsonData is undefined
+      const map = mapCurrent();
+      if (map) {
+        const source = map.getSource("my-data");
+        if (source && source.type === "geojson") {
+          source.setData({
+            type: "FeatureCollection",
+            features: [],
+          });
+        }
+      }
+      return;
+    }
     const updateData = async () => {
       try {
         await awaitMap();
-        if (!mapCurrent()) return;
-        console.log(mapCurrent(), props.geoJsonData);
-        mapCurrent().getSource("my-data").setData(props.geoJsonData);
+        const map = mapCurrent();
+        if (!map) return;
+        const source = map.getSource("my-data");
+        if (source && source.type === "geojson") {
+          source.setData(props.geoJsonData);
+        }
       } catch (e) {
         console.error(e);
       }
     };
     updateData();
-    return () => {
-      /** noop */
-    };
   }, [props.geoJsonData]);
 
   return <div ref={mapContainer} className="map-container w-full h-full" />;

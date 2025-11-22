@@ -14,19 +14,13 @@ import {
   setDate,
   watchScenesState,
 } from "../actions/main-actions";
-import { checkDates, checkUserPermissons } from "../actions/usgs-api";
-import { SettingsChema } from "../main/settings-store";
 import { useAppDispatch, useAppSelector } from "./app";
-import { BoundsSelector, ISelectionCoordinates } from "./BoundsSelector";
-import { DateList } from "./DateList";
 import { DownloadManager } from "./download-manager/download-manager";
 import { SystemHelper } from "./SystemHelper";
 
 interface AppRoutes {
   "/auth": void;
   "/date-selector": void;
-  "/bounds": void;
-  "/date_list": ISelectionCoordinates;
   "/": void;
 }
 
@@ -49,49 +43,55 @@ export function useTypedLocation<T extends keyof AppRoutes>() {
 const MainWindowContent = () => {
   const dispatch = useAppDispatch();
   const navigate = useTypedNavigate();
-  const authorized = useAppSelector((state) => state.main.authorized);
 
   useEffect(() => {
     const interval = setInterval(() => {
       dispatch(watchScenesState());
     }, 1000);
-    checkDates().then((ld) => {
+    window.ElectronAPI.invoke.usgsCheckDates().then((ld) => {
       dispatch(setDate(ld));
     });
     return () => clearInterval(interval);
   }, [dispatch]);
 
-  // Check stored credentials on app start and restore authorized state if valid
+  // Check USGS API status on app start and restore authorized state if valid
+  // Note: Session is already initialized in main process, we just check the status
   useEffect(() => {
-    const checkStoredAuth = async () => {
+    const checkAuthStatus = async () => {
       try {
-        const storedCreds = (await window.ElectronAPI.invoke.getStoreValue(
-          "userdata"
-        )) as SettingsChema["userdata"] | undefined;
-
-        if (storedCreds && storedCreds.username && storedCreds.token) {
-          try {
-            const { data } = (await checkUserPermissons(storedCreds)) || {};
-            if (data?.data?.includes?.("download")) {
-              dispatch(mainActions.actions.getAccess());
-            }
-          } catch (e) {
-            console.error("Error checking stored credentials:", e);
-            // Credentials are invalid, don't set authorized state
-          }
+        console.log("[MainWindow] Checking USGS API status");
+        const status = await window.ElectronAPI.invoke.usgsGetStatus();
+        console.log("[MainWindow] USGS API status:", status);
+        if (status.auth === "authorized") {
+          dispatch(mainActions.actions.getAccess());
         }
       } catch (e) {
-        console.error("Error loading stored credentials:", e);
+        console.error("[MainWindow] Error checking USGS API status:", e);
       }
     };
 
-    checkStoredAuth();
+    // Wait a bit for main process to initialize session
+    const timeout = setTimeout(checkAuthStatus, 500);
+    return () => clearTimeout(timeout);
   }, [dispatch]);
 
   // Listen for login success message from main process
   useEffect(() => {
-    const handleLoginSuccess = (_event: any) => {
-      dispatch(mainActions.actions.getAccess());
+    const handleLoginSuccess = async (_event: unknown) => {
+      console.log("[MainWindow] Login success received, checking status");
+      // Session is already initialized in main process via login dialog
+      // Just check the status and update UI
+      try {
+        const status = await window.ElectronAPI.invoke.usgsGetStatus();
+        console.log("[MainWindow] USGS API status after login:", status);
+        if (status.auth === "authorized") {
+          dispatch(mainActions.actions.getAccess());
+        }
+      } catch (e) {
+        console.error("[MainWindow] Failed to check status after login:", e);
+        // Still grant access if login was successful
+        dispatch(mainActions.actions.getAccess());
+      }
     };
 
     const handle403Error = async (
@@ -113,45 +113,11 @@ const MainWindowContent = () => {
       // The cleanup will happen when component unmounts
     };
   }, [dispatch, navigate]);
-  // Intercept navigation to protected routes
-  useEffect(() => {
-    const handleRouteChange = () => {
-      const currentPath = window.location.hash.replace("#", "") || "/";
-      if (
-        (currentPath === "/bounds" || currentPath === "/date_list") &&
-        !authorized
-      ) {
-        // Open login dialog with target route
-        window.ElectronAPI.invoke.openLoginDialog({
-          autoLogin: true,
-          targetRoute: currentPath,
-        });
-      }
-    };
-
-    // Check on mount and route changes
-    handleRouteChange();
-    window.addEventListener("hashchange", handleRouteChange);
-
-    return () => {
-      window.removeEventListener("hashchange", handleRouteChange);
-    };
-  }, [authorized]);
 
   return (
     <>
       <SystemHelper />
       <Routes>
-        <TypedRoute
-          path="/bounds"
-          element={
-            authorized ? <BoundsSelector /> : <Navigate to="/" replace />
-          }
-        />
-        <TypedRoute
-          path="/date_list"
-          element={authorized ? <DateList /> : <Navigate to="/" replace />}
-        />
         <TypedRoute path="/" element={<DownloadManager />} />
         <TypedRoute path="*" element={<Navigate to="/" replace />} />
       </Routes>

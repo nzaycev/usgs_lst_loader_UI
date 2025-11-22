@@ -8,6 +8,8 @@ import { setupDownloadHandlers } from "./ipc-handlers/download-handlers";
 import { setupFileHandlers } from "./ipc-handlers/file-handlers";
 import { setupRepoHandlers } from "./ipc-handlers/repo-handlers";
 import { setupSettingsHandlers } from "./ipc-handlers/settings-handlers";
+import { setupUsgsApiHandlers } from "./ipc-handlers/usgs-api-handlers";
+import { usgsApiManager } from "./usgs-api";
 import { setupRendererLogging } from "./logging";
 import { createMainWindow } from "./window-creation";
 dotenv.config();
@@ -37,10 +39,11 @@ const createWindow = async () => {
   // Setup all IPC handlers
   setupSettingsHandlers(mainWindow);
   setupFileHandlers(mainWindow, fsWatcher);
-  setupDialogHandlers(mainWindow);
+  setupDialogHandlers(mainWindow, fsWatcher);
   setupDownloadHandlers(mainWindow, fsWatcher);
   setupCalculationHandlers();
   setupRepoHandlers();
+  setupUsgsApiHandlers(mainWindow);
 };
 
 // Setup app event handlers

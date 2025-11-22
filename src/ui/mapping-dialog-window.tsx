@@ -11,7 +11,7 @@ import {
 } from "@chakra-ui/react";
 import React, { useEffect, useState } from "react";
 import { USGSLayerType } from "../actions/main-actions";
-import { DialogHeader } from "./dialog-header";
+import { ModalSystemHelper } from "./ModalSystemHelper";
 
 interface MappingDialogWindowProps {
   toast: ReturnType<typeof useToast>;
@@ -244,7 +244,7 @@ const MappingDialogWindow: React.FC<MappingDialogWindowProps> = ({ toast }) => {
         width: "100%",
       }}
     >
-      <DialogHeader title="Map Files and Add Metadata" onClose={handleCancel} />
+      <ModalSystemHelper title="Map Files and Add Metadata" onClose={handleCancel} />
       <div
         style={{
           padding: "20px",

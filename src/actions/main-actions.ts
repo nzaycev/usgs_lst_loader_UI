@@ -1,7 +1,6 @@
 import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { ParsedPath } from "../tools/ElectronApi";
 import { RootState } from "../ui/app";
-import { getDownloadDS } from "./usgs-api";
 
 export type DisplayId = string;
 export type USGSLayerType =
@@ -112,7 +111,7 @@ export const addSceneToRepo = createAsyncThunk<
   { entityId: string; displayId: DisplayId }
 >("scenes/download", async (payload, thunkApi) => {
   try {
-    const ds = await getDownloadDS(payload.entityId);
+    const ds = await window.ElectronAPI.invoke.usgsGetDownloadDS(payload.entityId);
     console.log({ ds });
     window.ElectronAPI.invoke.addRepo({ ds, ...payload });
     ds.forEach(({ url }) => {

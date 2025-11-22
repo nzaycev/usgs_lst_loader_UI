@@ -86,6 +86,25 @@ const api: Api = {
       electronIpcRenderer.send("login-dialog-result", result);
       return Promise.resolve();
     },
+    async openSearchSceneDialog() {
+      return (await ipcRenderer.invoke<Api>("openSearchSceneDialog")) as {
+        start: [number, number];
+        end: [number, number];
+      } | null;
+    },
+    sendSearchSceneDialogResult(result) {
+      electronIpcRenderer.send("search-scene-dialog-result", result);
+      return Promise.resolve();
+    },
+    async openSettingsDialog() {
+      return (await ipcRenderer.invoke<Api>("openSettingsDialog")) as
+        | boolean
+        | null;
+    },
+    sendSettingsDialogResult(result) {
+      electronIpcRenderer.send("settings-dialog-result", result);
+      return Promise.resolve();
+    },
     async windowMinimize() {
       await ipcRenderer.invoke<Api>("windowMinimize");
     },
@@ -103,6 +122,38 @@ const api: Api = {
     },
     async stopCalculation(displayId) {
       await ipcRenderer.invoke<Api>("stopCalculation", displayId);
+    },
+    async usgsCheckUserPermissions(creds) {
+      return (await ipcRenderer.invoke<Api>(
+        "usgsCheckUserPermissions",
+        creds
+      )) as { data: any } | null;
+    },
+    async usgsSearchScenes(filter) {
+      return (await ipcRenderer.invoke<Api>("usgsSearchScenes", filter)) as any;
+    },
+    async usgsReindexScene(displayId) {
+      return (await ipcRenderer.invoke<Api>("usgsReindexScene", displayId)) as any;
+    },
+    async usgsCheckDates() {
+      return (await ipcRenderer.invoke<Api>("usgsCheckDates")) as string;
+    },
+    async usgsGetDownloadDS(entityId) {
+      return (await ipcRenderer.invoke<Api>("usgsGetDownloadDS", entityId)) as Array<{
+        id: string;
+        url: string;
+        layerName: USGSLayerType;
+      }>;
+    },
+    async usgsGetStatus() {
+      return (await ipcRenderer.invoke<Api>("usgsGetStatus")) as {
+        connection: "offline" | "loading" | "online";
+        auth: "guest" | "authorizing" | "authorized";
+        username?: string;
+      };
+    },
+    async usgsLogout() {
+      await ipcRenderer.invoke<Api>("usgsLogout");
     },
   },
   on: {
@@ -149,6 +200,12 @@ const api: Api = {
     },
     openLoginDialog403(listener) {
       electronIpcRenderer.on("open-login-dialog-403", (event, data) => {
+        listener(event, data);
+      });
+      return Promise.resolve();
+    },
+    usgsApiStatusChange(listener) {
+      electronIpcRenderer.on("usgs-api-status-change", (event, data) => {
         listener(event, data);
       });
       return Promise.resolve();

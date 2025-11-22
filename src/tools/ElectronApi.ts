@@ -106,12 +106,42 @@ export type RequestApi = {
   sendLoginDialogResult: (
     result: { username: string; token: string } | null
   ) => Promise<void>;
+  openSearchSceneDialog: () => Promise<{
+    start: [number, number];
+    end: [number, number];
+  } | null>;
+  sendSearchSceneDialogResult: (
+    result: {
+      start: [number, number];
+      end: [number, number];
+    } | null
+  ) => Promise<void>;
+  openSettingsDialog: () => Promise<boolean | null>;
+  sendSettingsDialogResult: (result: boolean | null) => Promise<void>;
   windowMinimize: () => Promise<void>;
   windowMaximize: () => Promise<void>;
   windowClose: () => Promise<void>;
   windowIsMaximized: () => Promise<boolean>;
   deleteScene: (displayId: string) => Promise<void>;
   stopCalculation: (displayId: string) => Promise<void>;
+  usgsCheckUserPermissions: (
+    creds: SettingsChema["userdata"]
+  ) => Promise<{ data: any } | null>;
+  usgsSearchScenes: (filter: ISearchScenesFilter) => Promise<any>;
+  usgsReindexScene: (displayId: string) => Promise<any>;
+  usgsCheckDates: () => Promise<string>;
+  usgsGetDownloadDS: (entityId: string) => Promise<
+    Array<{
+      id: string;
+      url: string;
+      layerName: USGSLayerType;
+    }>
+  >;
+  usgsGetStatus: () => Promise<{
+    auth: "guest" | "authorizing" | "authorized";
+    username?: string;
+  }>;
+  usgsLogout: () => Promise<void>;
 };
 
 export type ParsedPath = {
@@ -143,6 +173,10 @@ export type HookApi = {
     targetRoute: string;
   }) => Promise<void>;
   openLoginDialog403: (data: { targetRoute: string }) => Promise<void>;
+  usgsApiStatusChange: (data: {
+    auth: "guest" | "authorizing" | "authorized";
+    username?: string;
+  }) => Promise<void>;
 };
 
 export type Api = GetApiType<RequestApi, HookApi>;

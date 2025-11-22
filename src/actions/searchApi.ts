@@ -1,7 +1,6 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import { Polygon } from "@turf/turf";
 import { ISearchScenesFilter } from "../tools/ElectronApi";
-import { reindexScene, searchScenes } from "./usgs-api";
 
 async function baseQuery({
   type,
@@ -11,9 +10,15 @@ async function baseQuery({
   args: any;
 }) {
   try {
-    const request = type === "getScene" ? reindexScene : searchScenes;
-    const data = await request(args);
-    return data;
+    if (type === "getScene") {
+      const data = await window.ElectronAPI.invoke.usgsReindexScene(
+        args.displayId
+      );
+      return data;
+    } else {
+      const data = await window.ElectronAPI.invoke.usgsSearchScenes(args);
+      return data;
+    }
   } catch (e) {
     throw new Error(e);
   }

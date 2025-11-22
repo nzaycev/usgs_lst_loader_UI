@@ -45,7 +45,6 @@ import {
 import { useLazyGetSceneByIdQuery } from "../../actions/searchApi";
 import { SettingsChema } from "../../main/settings-store";
 import { useAppDispatch, useAppSelector } from "../app";
-import { useTypedNavigate } from "../mainWindow";
 import { SmartLaunchButton } from "./smart-launch-button";
 
 // SceneStateView removed - now using table view
@@ -447,7 +446,6 @@ export const DownloadManager = () => {
   try {
     const { scenes, selectedIds } = useAppSelector((state) => state.main);
     const dispatch = useAppDispatch();
-    const navigate = useTypedNavigate();
     const [initialFormState] = useFormState();
     const [expandedIds, setExpandedIds] = useState<string[]>([]);
     const [expandedFilesIds, setExpandedFilesIds] = useState<string[]>([]);
@@ -658,18 +656,18 @@ export const DownloadManager = () => {
     };
 
     const handleFindInUSGS = async () => {
-      if (authorized) {
-        navigate("/bounds");
-      } else {
+      if (!authorized) {
         // Open login dialog
         const result = await window.ElectronAPI.invoke.openLoginDialog({
           autoLogin: true,
         });
-        if (result) {
-          // После успешной авторизации делаем редирект вручную
-          navigate("/bounds");
+        if (!result) {
+          return;
         }
       }
+
+      // Open search scene dialog (bounds + date_list)
+      await window.ElectronAPI.invoke.openSearchSceneDialog();
     };
 
     const getSceneStatus = (state: ISceneState | undefined): string => {

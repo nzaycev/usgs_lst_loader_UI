@@ -1,4 +1,5 @@
 import { app, BrowserWindow } from "electron";
+import { usgsApiManager } from "./usgs-api";
 
 export function setupAppEvents(createWindow: () => void) {
   // This method will be called when Electron has finished
@@ -11,14 +12,22 @@ export function setupAppEvents(createWindow: () => void) {
   // explicitly with Cmd + Q.
   /** window initialization */
   app.on("window-all-closed", async () => {
-    // eslint-disable-next-line no-constant-condition
-    // while (true) {
-    //   if (!(await fsWatcher.stillWorking())) {
-    //     break;
-    //   }
-    //   await new Promise((resolve) => setTimeout(resolve, 5000));
-    // }
+    // Logout from USGS API before quitting
+    try {
+      await usgsApiManager.logout();
+    } catch (e) {
+      console.error("Error during logout:", e);
+    }
     app.quit();
+  });
+
+  app.on("before-quit", async () => {
+    // Also logout on before-quit (handles force quit)
+    try {
+      await usgsApiManager.logout();
+    } catch (e) {
+      console.error("Error during logout:", e);
+    }
   });
 
   app.on("activate", () => {

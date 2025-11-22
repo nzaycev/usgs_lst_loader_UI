@@ -1,13 +1,17 @@
 import { BrowserWindow, ipcMain as electronIpcMain } from "electron";
 import { ipcMain } from "electron-typescript-ipc";
-import { checkUserPermissons } from "../../actions/usgs-api";
 import type { Api } from "../../tools/ElectronApi";
+import { FsWatcher } from "../fs-watcher";
 import { SettingsChema, store } from "../settings-store";
+import { usgsApiManager } from "../usgs-api";
 
 declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
 declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
 
-export function setupDialogHandlers(mainWindow: BrowserWindow) {
+export function setupDialogHandlers(
+  mainWindow: BrowserWindow,
+  fsWatcher: FsWatcher
+) {
   ipcMain.handle<Api>(
     "openLoginDialog",
     async (
@@ -112,10 +116,11 @@ export function setupDialogHandlers(mainWindow: BrowserWindow) {
           if (event.sender === dialogWindow.webContents) {
             if (result) {
               // Проверяем права доступа
-              checkUserPermissons({
-                username: result.username,
-                token: result.token,
-              })
+              usgsApiManager
+                .checkUserPermissions({
+                  username: result.username,
+                  token: result.token,
+                })
                 .then((response) => {
                   const { data } = response || {};
                   if (data?.data?.includes?.("download")) {
@@ -147,6 +152,188 @@ export function setupDialogHandlers(mainWindow: BrowserWindow) {
         electronIpcMain.on("login-dialog-result", resultHandler);
 
         // Если окно закрыто без результата
+        dialogWindow.on("closed", () => {
+          cleanupAndResolve(null);
+        });
+      });
+    }
+  );
+
+  ipcMain.handle<Api>(
+    "openSearchSceneDialog",
+    async (): Promise<{
+      start: [number, number];
+      end: [number, number];
+    } | null> => {
+      return new Promise(async (resolve) => {
+        let isResolved = false;
+
+        // Get current scenes list to pass to dialog
+        const scenesState = await fsWatcher.getState();
+        const existingDisplayIds = Object.keys(scenesState || {});
+        const scenesData = JSON.stringify({ displayIds: existingDisplayIds });
+
+        const dialogWindow = new BrowserWindow({
+          parent: mainWindow,
+          modal: true,
+          titleBarStyle: "hidden",
+          width: 1000,
+          height: 700,
+          resizable: true,
+          title: "Search Scene",
+          darkTheme: true,
+          webPreferences: {
+            preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
+            webSecurity: false,
+          },
+        });
+        dialogWindow.setBackgroundColor("#111827");
+
+        dialogWindow.loadURL(
+          `${MAIN_WINDOW_WEBPACK_ENTRY}#search-scene-dialog:${encodeURIComponent(
+            scenesData
+          )}`
+        );
+
+        dialogWindow.show();
+
+        dialogWindow.webContents.on("before-input-event", (_event, input) => {
+          if (
+            input.key === "F12" ||
+            (input.control && input.shift && input.key === "I")
+          ) {
+            if (dialogWindow.webContents.isDevToolsOpened()) {
+              dialogWindow.webContents.closeDevTools();
+            } else {
+              dialogWindow.webContents.openDevTools();
+            }
+          }
+        });
+
+        const cleanupAndResolve = (
+          result: {
+            start: [number, number];
+            end: [number, number];
+          } | null
+        ) => {
+          if (isResolved) return;
+          isResolved = true;
+
+          try {
+            electronIpcMain.removeListener(
+              "search-scene-dialog-result",
+              resultHandler
+            );
+          } catch (e) {
+            console.error("Error removing listener:", e);
+          }
+
+          try {
+            if (!dialogWindow.isDestroyed()) {
+              dialogWindow.close();
+            }
+          } catch (e) {
+            console.error("Error closing window:", e);
+          }
+
+          resolve(result);
+        };
+
+        const resultHandler = (
+          event: Electron.IpcMainEvent,
+          result: {
+            start: [number, number];
+            end: [number, number];
+          } | null
+        ) => {
+          if (event.sender === dialogWindow.webContents) {
+            cleanupAndResolve(result);
+          }
+        };
+
+        electronIpcMain.on("search-scene-dialog-result", resultHandler);
+
+        dialogWindow.on("closed", () => {
+          cleanupAndResolve(null);
+        });
+      });
+    }
+  );
+
+  ipcMain.handle<Api>(
+    "openSettingsDialog",
+    async (): Promise<boolean | null> => {
+      return new Promise((resolve) => {
+        let isResolved = false;
+
+        const dialogWindow = new BrowserWindow({
+          parent: mainWindow,
+          modal: true,
+          titleBarStyle: "hidden",
+          width: 600,
+          height: 700,
+          resizable: true,
+          title: "Network Settings",
+          darkTheme: true,
+          webPreferences: {
+            preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
+            webSecurity: false,
+          },
+        });
+        dialogWindow.setBackgroundColor("#111827");
+
+        dialogWindow.loadURL(`${MAIN_WINDOW_WEBPACK_ENTRY}#settings-dialog:`);
+
+        dialogWindow.show();
+
+        dialogWindow.webContents.on("before-input-event", (_event, input) => {
+          if (
+            input.key === "F12" ||
+            (input.control && input.shift && input.key === "I")
+          ) {
+            if (dialogWindow.webContents.isDevToolsOpened()) {
+              dialogWindow.webContents.closeDevTools();
+            } else {
+              dialogWindow.webContents.openDevTools();
+            }
+          }
+        });
+
+        const cleanupAndResolve = (result: boolean | null) => {
+          if (isResolved) return;
+          isResolved = true;
+
+          try {
+            electronIpcMain.removeListener(
+              "settings-dialog-result",
+              resultHandler
+            );
+          } catch (e) {
+            console.error("Error removing listener:", e);
+          }
+
+          try {
+            if (!dialogWindow.isDestroyed()) {
+              dialogWindow.close();
+            }
+          } catch (e) {
+            console.error("Error closing window:", e);
+          }
+
+          resolve(result);
+        };
+
+        const resultHandler = (
+          event: Electron.IpcMainEvent,
+          result: boolean | null
+        ) => {
+          if (event.sender === dialogWindow.webContents) {
+            cleanupAndResolve(result);
+          }
+        };
+
+        electronIpcMain.on("settings-dialog-result", resultHandler);
+
         dialogWindow.on("closed", () => {
           cleanupAndResolve(null);
         });

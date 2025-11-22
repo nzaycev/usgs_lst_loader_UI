@@ -1,7 +1,6 @@
 import { app, BrowserWindow, session } from "electron";
 import fs from "fs";
 import path from "path";
-import { setOpenLoginDialogHandler } from "../actions/usgs-api";
 import type { INetworkSettings } from "../ui/network-settings/network-settings-state";
 import { FsWatcher } from "./fs-watcher";
 import { applyProxySettings } from "./proxy-settings";
@@ -39,14 +38,6 @@ export function createMainWindow(fsWatcher: FsWatcher): BrowserWindow {
   mainWindow.setBackgroundColor("#111827");
 
   fsWatcher.setMainWindow(mainWindow);
-
-  // Set up 403 error handler to open login dialog
-  setOpenLoginDialogHandler(async (targetRoute?: string) => {
-    // Trigger the login dialog via renderer
-    mainWindow.webContents.send("open-login-dialog-403", {
-      targetRoute: targetRoute || "/bounds",
-    });
-  });
 
   // and load the index.html of the app.
   mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
