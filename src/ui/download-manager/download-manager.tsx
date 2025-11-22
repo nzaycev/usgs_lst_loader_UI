@@ -43,7 +43,7 @@ import {
   watchScenesState,
 } from "../../actions/main-actions";
 import { useLazyGetSceneByIdQuery } from "../../actions/searchApi";
-import { SettingsChema } from "../../backend/settings-store";
+import { SettingsChema } from "../../main/settings-store";
 import { useAppDispatch, useAppSelector } from "../app";
 import { useTypedNavigate } from "../mainWindow";
 import { SmartLaunchButton } from "./smart-launch-button";

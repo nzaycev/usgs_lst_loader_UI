@@ -22,7 +22,7 @@ import {
 } from "@chakra-ui/react";
 import { isEqual } from "lodash";
 import React, { useEffect, useState } from "react";
-import { SettingsChema } from "../../backend/settings-store";
+import { SettingsChema } from "../../main/settings-store";
 import { useAppDispatch, useAppSelector } from "../app";
 import { testNetwork } from "../network-test/network-state";
 import {

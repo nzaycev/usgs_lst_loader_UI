@@ -1,9 +1,8 @@
 import axios from "axios";
+import { SettingsChema } from "../main/settings-store";
 import { ISearchScenesFilter } from "../tools/ElectronApi";
 // import dotenv from 'dotenv'
-import { USGSLayerType } from "../actions/main-actions";
-import turf from "@turf/turf";
-import { SettingsChema } from "./settings-store";
+import { USGSLayerType } from "./main-actions";
 // import HttpsProxyAgent from 'https-proxy-agent'
 
 // console.log('dotenv', dotenv.config())

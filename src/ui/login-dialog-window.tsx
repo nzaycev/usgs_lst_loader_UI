@@ -9,8 +9,8 @@ import {
   useToast,
 } from "@chakra-ui/react";
 import React, { useEffect, useState } from "react";
-import { SettingsChema } from "../backend/settings-store";
-import { checkUserPermissons } from "../backend/usgs-api";
+import { checkUserPermissons } from "../actions/usgs-api";
+import { SettingsChema } from "../main/settings-store";
 import { DialogHeader } from "./dialog-header";
 
 const LoginDialogWindow = () => {

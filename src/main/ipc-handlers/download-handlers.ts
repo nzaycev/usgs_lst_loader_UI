@@ -2,7 +2,7 @@ import { app } from "electron";
 import fs from "fs";
 import path from "path";
 import type { ISceneState, USGSLayerType } from "../../actions/main-actions";
-import { FsWatcher } from "../../backend/fs-watcher";
+import { FsWatcher } from "../fs-watcher";
 
 export function setupDownloadHandlers(
   mainWindow: Electron.BrowserWindow,

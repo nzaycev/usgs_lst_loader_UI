@@ -1,7 +1,7 @@
 import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
-import { getDownloadDS } from "../backend/usgs-api";
 import { ParsedPath } from "../tools/ElectronApi";
 import { RootState } from "../ui/app";
+import { getDownloadDS } from "./usgs-api";
 
 export type DisplayId = string;
 export type USGSLayerType =

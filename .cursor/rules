@@ -1,0 +1,415 @@
+# USGS LST Loader - Project Architecture and Coding Rules
+
+## Project Overview
+
+This is an Electron application for downloading and processing USGS Landsat satellite data with LST (Land Surface Temperature) calculations. The project uses:
+
+- **Electron 17.1.2** with TypeScript
+- **React 17** with Redux Toolkit for UI state management
+- **Python 3.6** with GDAL for geospatial calculations
+- **Webpack** for bundling (main process, renderer process, and preload script)
+- **PyInstaller** for building standalone Python executable
+
+**Platform:** Windows only (no cross-platform support)
+
+**USGS API:** Uses M2M (Machine-to-Machine) API at `https://m2m.cr.usgs.gov/api/api/json/stable` for downloading scenes
+
+## Architecture Overview
+
+### Main Process (`src/main/`)
+
+The main process runs in Node.js and manages application lifecycle, windows, and IPC communication.
+
+**Entry Point:** `src/main/index.ts`
+
+- Initializes the Electron app
+- Sets up logging, file watchers, and IPC handlers
+- Creates the main window on app ready
+
+**Key Files:**
+
+- `src/main/index.ts` - Main entry point, orchestrates initialization
+- `src/main/window-creation.ts` - Creates and configures BrowserWindow instances
+- `src/main/app-events.ts` - Handles Electron app lifecycle events (ready, window-all-closed, activate)
+- `src/main/renderer.ts` - Entry point for renderer process (imports UI app)
+- `src/main/logging.ts` - Centralized logging setup
+- `src/main/proxy-settings.ts` - Network proxy configuration
+
+**IPC Handlers (`src/main/ipc-handlers/`):**
+
+- `calculation-handlers.ts` - Handles Python calculation script execution
+- `dialog-handlers.ts` - Manages modal dialog windows (login, mapping)
+- `download-handlers.ts` - Manages USGS data downloads
+- `file-handlers.ts` - File system operations, folder scanning, mapping dialogs
+- `repo-handlers.ts` - Repository/scene management
+- `settings-handlers.ts` - Application settings persistence
+
+**Conventions:**
+
+- All IPC handlers are set up via `setup*Handlers()` functions exported from handler files
+- **Handlers use fully typed IPC:** `electron-typescript-ipc` with `Api` type from `src/tools/ElectronApi.ts`
+  - `ipcMain.handle<Api>("methodName", handler)` ensures type safety
+  - Handler parameters and return types are automatically inferred from `RequestApi`
+  - TypeScript compiler validates all IPC method signatures
+- IPC handlers receive `BrowserWindow` instance when they need to interact with windows
+- Use `electron-store` for persistent settings (via `src/main/settings-store.ts`)
+
+### Renderer Process (`src/ui/` and `src/main/renderer.ts`)
+
+The renderer process runs in Chromium and renders the React UI.
+
+**Entry Point:** `src/main/renderer.ts` → `src/ui/app.tsx`
+
+**Key Components:**
+
+- `src/ui/app.tsx` - Root component that routes between main window and modal dialogs
+- `src/ui/mainWindow.tsx` - Main application window component
+- `src/ui/mapping-dialog-window.tsx` - Modal dialog for file mapping
+- `src/ui/login-dialog-window.tsx` - Modal dialog for authentication
+
+**State Management:**
+
+- **Redux Toolkit** with multiple slices:
+  - `mainActions` - Main application state (scenes, collections)
+  - `searchApi` - RTK Query for USGS API search
+  - `networkSlice` - Network test state
+  - `networkSettingsSlice` - Network/proxy settings
+- Store configured in `src/ui/app.tsx`
+- Use typed hooks: `useAppDispatch()` and `useAppSelector()`
+
+**UI Libraries:**
+
+- **Chakra UI** for component library
+- **Tailwind CSS** for styling
+- **React Map GL** (Mapbox) for map visualization
+- **Framer Motion** for animations
+
+**Conventions:**
+
+- **Prefer Redux Toolkit** for state management - use Redux slices for global state, avoid local state when data needs to be shared
+- **Prefer components** - break down large components into smaller, reusable components
+- **File size limit:** Keep files under 500 lines - split large files into smaller modules
+- Use functional components with hooks
+- Type all props with TypeScript interfaces
+- Access Electron API via `window.ElectronAPI` (exposed through preload)
+- Modal dialogs are detected via URL hash: `#mapping-dialog:` or `#login-dialog:`
+- Modal dialogs render WITHOUT Redux providers (standalone components)
+
+### Preload Script (`preload.ts`)
+
+The preload script runs in the renderer context before the page loads and bridges main/renderer processes.
+
+**Key Responsibilities:**
+
+- Exposes safe Electron API to renderer via `contextBridge.exposeInMainWorld("ElectronAPI", api)`
+- Forwards console logs to main process via IPC
+- Provides **fully typed IPC communication** using `electron-typescript-ipc`:
+  - All IPC methods are typed via `Api` interface from `src/tools/ElectronApi.ts`
+  - TypeScript ensures type safety for all IPC calls
+  - `RequestApi` defines all `invoke` methods with their parameters and return types
+  - `HookApi` defines all event subscriptions with their payload types
+- Exposes environment variables (mapboxToken, usgs credentials)
+
+**Conventions:**
+
+- Never use `nodeIntegration: true` in renderer
+- Always use `contextIsolation: true`
+- All Electron APIs must be exposed through preload
+- **IPC API is fully typed:** Use `Api` type from `src/tools/ElectronApi.ts` for type safety
+  - All IPC methods are defined in `RequestApi` and `HookApi` interfaces
+  - TypeScript compiler ensures type correctness at compile time
+  - IDE provides autocomplete and type checking for all IPC calls
+
+### Modal Windows
+
+Modal windows are separate BrowserWindow instances created by the main process.
+
+**Implementation Pattern:**
+
+1. Main process creates modal BrowserWindow with `parent: mainWindow` and `modal: true`
+2. Data passed via URL hash: `${MAIN_WINDOW_WEBPACK_ENTRY}#dialog-name:${encodedData}`
+3. Renderer detects hash in `app.tsx` and renders appropriate dialog component
+4. Dialog sends result via IPC: `electronIpcRenderer.send("dialog-result", result)`
+5. Main process listens for result, resolves Promise, and closes window
+
+**Modal Types:**
+
+- **Login Dialog** (`openLoginDialog` IPC handler)
+
+  - Location: `src/ui/login-dialog-window.tsx`
+  - Purpose: USGS authentication (username/token)
+  - Returns: `{ username: string; token: string } | null`
+  - Validates permissions via `checkUserPermissons()` before resolving
+
+- **Mapping Dialog** (`openMappingDialog` IPC handler)
+  - Location: `src/ui/mapping-dialog-window.tsx`
+  - Purpose: Map files to USGS layer types and add metadata
+  - Returns: `{ fileMapping: Record<string, USGSLayerType>; metadata?: {...} } | null`
+
+**Conventions:**
+
+- Modal windows use same preload script as main window
+- Always clean up IPC listeners before closing window
+- Use `isResolved` flag to prevent multiple resolutions
+- Handle window close event to resolve with `null` if user cancels
+- Modal windows are frameless (`titleBarStyle: "hidden"`)
+
+### Calculation Script (`backend/calculation/`)
+
+Standalone Python script for LST calculations, built into executable via PyInstaller.
+
+**Entry Point:** `backend/calculation/calculation.py`
+
+**Structure:**
+
+- `calculation.py` - Main script with CLI argument parsing
+- `lst_maths.py` - Mathematical functions for LST calculations
+- `raster_tools.py` - GDAL operations for reading/writing rasters
+- `band_names.py` - Band name constants and scale factors
+- `progress_emit.py` - Progress reporting via stdout (JSON)
+
+**Build Process:**
+
+- PyInstaller spec: `calculation.spec`
+- Build command: `npm run build-python`
+- Output: `public/tasks/calculation.exe` (Windows executable)
+- Includes Python virtual environment dependencies from `pyenv/`
+
+**Execution:**
+
+- Called from main process via `spawn` (child_process) with CLI arguments
+- Arguments passed via spawn: `--path`, `--emissionCalcMethod`, `--useQAMask`, `--saveLST`, etc.
+- Python script writes progress directly to `index.json` in scene directory via `emitProgress()` function
+- Progress is written atomically with retry logic to handle race conditions
+- Main process monitors `index.json` file changes via `FsWatcher`
+- Frontend polls scene status via `watchScenesState()` thunk (every 1 second)
+
+**Conventions:**
+
+- Use argparse for CLI arguments
+- All calculations use NumPy arrays
+- Handle GDAL errors gracefully
+- Progress reporting must be JSON-serializable
+- Use `alive_progress` with fallback for progress bars
+- Output files follow pattern: `{layerPattern}` with `{name}` and `{date}` placeholders
+
+### Backend Utilities (`src/backend/`)
+
+**Files:**
+
+- `usgs-api.ts` - USGS M2M API client with authentication (uses `landsat_ot_c2_l2` dataset)
+- `settings-store.ts` - Electron store wrapper for settings persistence
+- `fs-watcher.ts` - File system watcher for scene directories
+
+**External Repositories:**
+
+- External scene paths are stored in `%AppData%/{appName}/localStorage/index.json` under `externalPaths` array
+- `FsWatcher` reads `externalPaths` from global index and monitors those directories
+- External paths allow adding scenes from outside the default `localStorage` directory
+
+**Conventions:**
+
+- Backend code runs in main process (Node.js)
+- Use TypeScript for type safety
+- Settings use `electron-store` with schema validation
+- All file paths use Windows path separators (`\`)
+
+## Coding Standards
+
+### TypeScript
+
+- Use strict typing, avoid `any`
+- Define interfaces for all data structures
+- Use type imports: `import type { ... }`
+- Follow existing code style (4 spaces indentation)
+
+### React/UI
+
+- **Prefer Redux Toolkit** - Use Redux slices for state that needs to be shared across components
+- **Prefer components** - Extract reusable logic into components rather than duplicating code
+- **File size limit:** Keep files under 500 lines - split large components into smaller ones
+- Functional components only
+- Use hooks for state and side effects
+- Type all component props
+- Use Redux Toolkit for global state
+- Keep components focused and small
+- Use Chakra UI components when possible
+
+### IPC Communication
+
+- **Fully typed IPC API** - All IPC methods are type-safe via `electron-typescript-ipc`
+- **Type definition:** All IPC methods must be defined in `src/tools/ElectronApi.ts`:
+  - `RequestApi` type - defines all `invoke` methods (request/response patterns)
+  - `HookApi` type - defines all `on` event subscriptions
+  - `Api` type - created via `GetApiType<RequestApi, HookApi>` from `electron-typescript-ipc`
+- **Type safety:** TypeScript ensures:
+  - Correct method names
+  - Correct parameter types
+  - Correct return types
+  - Type inference in both main and renderer processes
+- **Usage:**
+  - Main process: `ipcMain.handle<Api>("methodName", handler)`
+  - Renderer process: `window.ElectronAPI.invoke.methodName(...args)`
+  - Events: `window.ElectronAPI.on.eventName(listener)`
+- Use `invoke` for request/response patterns
+- Use `on` for event subscriptions
+- Always clean up event listeners
+
+### Error Handling
+
+- Use try-catch for async operations
+- Log errors to main process logger
+- Provide user-friendly error messages
+- Handle edge cases (null, undefined, empty arrays)
+
+### File Paths
+
+- **Windows only** - No cross-platform support needed
+- Use `path.join()` for path construction (works on Windows)
+- Use `app.getPath("userData")` for user data directory (typically `%AppData%/{appName}`)
+- Use `__dirname` or `process.resourcesPath` for bundled resources
+- Scene directories: `%AppData%/{appName}/localStorage/{displayId}/`
+- Global index: `%AppData%/{appName}/localStorage/index.json`
+
+### Python Code
+
+- Follow PEP 8 style guide
+- Use type hints where possible
+- Handle exceptions explicitly
+- Use context managers for resource management
+- Document complex calculations
+
+## Build and Development
+
+**Development:**
+
+- `npm start` - Start Electron app in development mode
+- `npm run build-python` - Build Python calculation executable
+- `npm run lint` - Run ESLint
+
+**Production:**
+
+- `npm run package` - Package Electron app
+- `npm run build` - Build installer
+- `npm run make-nsis` - Create NSIS installer
+
+**Webpack Configs:**
+
+- `webpack.main.config.js` - Main process bundle
+- `webpack.renderer.config.js` - Renderer process bundle
+- `preload.ts` - Preload script (no separate webpack config)
+
+## Key Terminology
+
+### Dataset
+
+- **Dataset:** `landsat_ot_c2_l2` - Landsat Collection 2 Level-2 dataset from USGS
+- Used in all USGS API calls for searching and downloading scenes
+- Defined in `src/actions/usgs-api.ts`
+
+### Scene (Сцена)
+
+- **Scene:** Main entity in the application - represents a single Landsat satellite capture
+- Stored in `%AppData%/{appName}/localStorage/{displayId}/`
+- Each scene has an `index.json` file with metadata and state
+- Displayed as rows in the main table
+- Contains multiple **layers** (bands) that can be downloaded
+- Can have multiple **calculations** (calculation runs)
+
+### Layer (Слой / Band)
+
+- **Layer:** Individual spectral band or data product (e.g., `B4`, `B5`, `B6`, `QA_PIXEL`, `ST_TRAD`)
+- Type: `USGSLayerType` enum
+- Each layer is a separate `.TIF` file
+- Download progress tracked per layer in `index.json`
+- Layers are mapped to files in the mapping dialog
+
+### Calculation (Расчет)
+
+- **Calculation:** LST calculation run for a scene
+- Stored in `index.json` under `calculations` array
+- Each calculation has:
+  - Algorithm settings (`emissionCalcMethod`, `useQAMask`, etc.)
+  - Output layers to save (`saveLST`, `saveNDVI`, etc.)
+  - Progress (`calculation` field: 0-1)
+  - Status (`calculated`, `calculationStep`)
+  - Process ID (`pid`) for tracking running calculations
+- Python script writes progress to `index.json` during execution
+
+## Data Flow
+
+### Add Scene Flow
+
+1. User searches for scenes via USGS API (M2M)
+2. User selects scene(s) and clicks "Add"
+3. Frontend calls `addRepo` IPC handler with `{ displayId, entityId, ds }`
+4. Main process creates scene directory: `%AppData%/{appName}/localStorage/{displayId}/`
+5. Main process creates `index.json` with initial state:
+   - `isRepo: true`
+   - `status: "new"`
+   - `donwloadedFiles` with URLs for each layer
+6. `FsWatcher` detects new directory and reads `index.json`
+7. Frontend polls `watchScenesState()` every 1 second to get updated state
+8. Scene appears in table with "new" status
+
+### Download Flow
+
+1. User clicks download for a scene
+2. Frontend calls `download` IPC handler with scene info
+3. Main process uses M2M API to download each layer
+4. Download progress updates `index.json`:
+   - `donwloadedFiles[type].progress` (0-1)
+   - `donwloadedFiles[type].size` (file size)
+5. `FsWatcher` monitors file system changes
+6. Frontend polls `watchScenesState()` to get download progress
+7. When all layers downloaded, `status` changes to `"ready"`
+
+### Calculate Flow
+
+1. User clicks "Calculate" for a scene
+2. Frontend calls `calculate` IPC handler with `sceneId` and `RunArgs`
+3. Main process:
+   - Reads `index.json` to get scene state
+   - Creates new calculation entry in `calculations` array
+   - Spawns Python process: `spawn("calculation.exe", ["--path", scenePath, ...args])`
+   - Saves process PID to calculation entry
+4. Python script (`calculation.py`):
+   - Reads bands from scene directory
+   - Writes progress to `index.json` via `emitProgress(progress, stage)`:
+     - Updates `calculation` field (0-1)
+     - Updates `calculationStep` field (stage name)
+   - Performs LST calculations
+   - Saves output layers to `out_{date}-{args}/` directory
+5. Frontend polls `watchScenesState()` every 1 second to get calculation progress
+6. When calculation completes:
+   - Python script sets `calculation: 1`, `calculationStep: "Finished"`
+   - Main process updates calculation status in `index.json`
+   - `calculated: true` flag set
+   - Output files appear in scene directory
+
+### Status Polling
+
+- **Frontend polling:** `watchScenesState()` thunk called every 1 second via `setInterval` in `mainWindow.tsx`
+- **IPC call:** `window.ElectronAPI.invoke.watch()` → `FsWatcher.getState()`
+- **Main process:** `FsWatcher` reads all scene directories and `index.json` files
+- **State update:** Redux store updated with latest scene states
+- **UI update:** Components re-render with new progress values
+
+## Important Notes
+
+1. **Security:** Never enable `nodeIntegration` in renderer. Always use preload script.
+2. **Context Isolation:** Always enabled. Use `contextBridge` to expose APIs.
+3. **Modal Windows:** Share the same webpack entry but detect via URL hash.
+4. **Python Script:** Must be built separately and included in app resources.
+5. **File Watching:** Use `FsWatcher` class for monitoring scene directories.
+6. **Settings:** Persist via `electron-store` in user data directory.
+7. **IPC Types:** All IPC methods must be defined in `src/tools/ElectronApi.ts`:
+   - `RequestApi` interface defines all `invoke` methods (request/response)
+   - `HookApi` interface defines all `on` event subscriptions
+   - `Api` type is created via `GetApiType<RequestApi, HookApi>` from `electron-typescript-ipc`
+   - Full type safety ensures correct method names, parameters, and return types at compile time
+8. **Windows Only:** Application is Windows-only - no cross-platform considerations needed.
+9. **M2M API:** All downloads use USGS M2M (Machine-to-Machine) API, not direct HTTP downloads.
+10. **Python Spawn:** Python scripts are executed via `spawn()` with CLI arguments, not `exec()` or `python-shell`.
+11. **Progress Writing:** Python script writes progress directly to `index.json` - main process doesn't parse stdout.
+12. **External Paths:** External scene repositories configured via `%AppData%/{appName}/localStorage/index.json` → `externalPaths` array.

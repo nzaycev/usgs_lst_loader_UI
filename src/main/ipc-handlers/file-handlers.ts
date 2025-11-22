@@ -7,7 +7,7 @@ import {
 import { ipcMain } from "electron-typescript-ipc";
 import type { Api } from "../../tools/ElectronApi";
 import type { USGSLayerType } from "../../actions/main-actions";
-import { FsWatcher } from "../../backend/fs-watcher";
+import { FsWatcher } from "../fs-watcher";
 import { spawn } from "child_process";
 import fs from "fs";
 import path from "path";

@@ -1,19 +1,22 @@
+import { exec } from "child_process";
 import { app, BrowserWindow } from "electron";
 import { ipcMain } from "electron-typescript-ipc";
 import fs from "fs";
 import path from "path";
-import { exec } from "child_process";
-import { FsWatcher } from "../../backend/fs-watcher";
-import { SettingsChema, store } from "../../backend/settings-store";
+import type { ISceneState } from "../../actions/main-actions";
 import type { Api } from "../../tools/ElectronApi";
 import type {
   CalculationSettings,
   INetworkSettings,
 } from "../../ui/network-settings/network-settings-state";
-import type { ISceneState } from "../../actions/main-actions";
+import { FsWatcher } from "../fs-watcher";
 import { applyProxySettings } from "../proxy-settings";
+import { SettingsChema, store } from "../settings-store";
 
-export function setupSettingsHandlers(mainWindow: BrowserWindow, fsWatcher?: FsWatcher) {
+export function setupSettingsHandlers(
+  mainWindow: BrowserWindow,
+  fsWatcher?: FsWatcher
+) {
   // Window control handlers
   ipcMain.handle<Api>("windowMinimize", async () => {
     mainWindow.minimize();
@@ -47,18 +50,18 @@ export function setupSettingsHandlers(mainWindow: BrowserWindow, fsWatcher?: FsW
     const appdataPath = path.join(app.getPath("userData"), "localStorage");
     const scenePath = path.join(appdataPath, displayId);
     const indexPath = path.join(scenePath, "index.json");
-    
+
     if (fs.existsSync(indexPath)) {
       const indexState: ISceneState = JSON.parse(
         fs.readFileSync(indexPath).toString()
       );
-      
+
       // Ищем активный расчет
       if (indexState.calculations && indexState.calculations.length > 0) {
         const runningCalc = indexState.calculations.find(
           (calc) => calc.status === "running" && calc.pid
         );
-        
+
         if (runningCalc && runningCalc.pid) {
           try {
             // Убиваем процесс на Windows
@@ -67,22 +70,22 @@ export function setupSettingsHandlers(mainWindow: BrowserWindow, fsWatcher?: FsW
             } else {
               process.kill(runningCalc.pid, "SIGTERM");
             }
-            
+
             // Обновляем состояние расчета
             runningCalc.status = "cancelled";
             runningCalc.endTime = new Date().toISOString();
             delete runningCalc.pid;
-            
+
             // Обновляем legacy поля
             indexState.calculation = 0;
-            
+
             fs.writeFileSync(indexPath, JSON.stringify(indexState, null, 2));
           } catch (error) {
             console.error("Error stopping calculation:", error);
           }
         }
       }
-      
+
       // Legacy support для старого формата
       if ((indexState as any).calculationPid) {
         try {

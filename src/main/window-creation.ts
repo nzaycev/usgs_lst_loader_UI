@@ -1,11 +1,11 @@
 import { app, BrowserWindow, session } from "electron";
 import fs from "fs";
 import path from "path";
-import { FsWatcher } from "../backend/fs-watcher";
-import { store } from "../backend/settings-store";
-import { setOpenLoginDialogHandler } from "../backend/usgs-api";
+import { setOpenLoginDialogHandler } from "../actions/usgs-api";
 import type { INetworkSettings } from "../ui/network-settings/network-settings-state";
+import { FsWatcher } from "./fs-watcher";
 import { applyProxySettings } from "./proxy-settings";
+import { store } from "./settings-store";
 
 declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
 declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;

@@ -1,8 +1,8 @@
 import { BrowserWindow, ipcMain as electronIpcMain } from "electron";
 import { ipcMain } from "electron-typescript-ipc";
-import { SettingsChema, store } from "../../backend/settings-store";
-import { checkUserPermissons } from "../../backend/usgs-api";
+import { checkUserPermissons } from "../../actions/usgs-api";
 import type { Api } from "../../tools/ElectronApi";
+import { SettingsChema, store } from "../settings-store";
 
 declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
 declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;

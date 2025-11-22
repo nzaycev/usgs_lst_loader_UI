@@ -5,7 +5,7 @@ import type {
   RunArgs,
   USGSLayerType,
 } from "../actions/main-actions";
-import { SettingsChema } from "../backend/settings-store";
+import { SettingsChema } from "../main/settings-store";
 import type {
   CalculationSettings,
   INetworkSettings,

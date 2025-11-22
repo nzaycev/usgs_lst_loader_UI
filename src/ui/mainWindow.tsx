@@ -14,8 +14,8 @@ import {
   setDate,
   watchScenesState,
 } from "../actions/main-actions";
-import { SettingsChema } from "../backend/settings-store";
-import { checkDates, checkUserPermissons } from "../backend/usgs-api";
+import { checkDates, checkUserPermissons } from "../actions/usgs-api";
+import { SettingsChema } from "../main/settings-store";
 import { useAppDispatch, useAppSelector } from "./app";
 import { BoundsSelector, ISelectionCoordinates } from "./BoundsSelector";
 import { DateList } from "./DateList";

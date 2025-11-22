@@ -1,18 +1,17 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import { Polygon } from "@turf/turf";
-import { transform } from "lodash";
-import { reindexScene, searchScenes } from "../backend/usgs-api";
-import { ISearchScenesFilter, RequestApi } from "../tools/ElectronApi";
+import { ISearchScenesFilter } from "../tools/ElectronApi";
+import { reindexScene, searchScenes } from "./usgs-api";
 
 async function baseQuery({
   type,
   args,
 }: {
-  type: 'getScene' | 'searchScene';
+  type: "getScene" | "searchScene";
   args: any;
 }) {
   try {
-    const request = type === 'getScene' ? reindexScene : searchScenes
+    const request = type === "getScene" ? reindexScene : searchScenes;
     const data = await request(args);
     return data;
   } catch (e) {
@@ -78,10 +77,10 @@ const searchApi = createApi({
       query: (displayId) => {
         return {
           type: "getScene",
-          args: {displayId}
-        }
-      }
-    })
+          args: { displayId },
+        };
+      },
+    }),
   }),
 });
 export const { useSearchScenesQuery, useLazyGetSceneByIdQuery } = searchApi;

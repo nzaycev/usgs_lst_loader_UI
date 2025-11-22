@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 import { app } from "electron";
-import { FsWatcher } from "../backend/fs-watcher";
 import { setupAppEvents } from "./app-events";
+import { FsWatcher } from "./fs-watcher";
 import { setupCalculationHandlers } from "./ipc-handlers/calculation-handlers";
 import { setupDialogHandlers } from "./ipc-handlers/dialog-handlers";
 import { setupDownloadHandlers } from "./ipc-handlers/download-handlers";
