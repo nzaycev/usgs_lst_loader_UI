@@ -1,30 +1,11 @@
-import {
-  Flex,
-  Input,
-  InputGroup,
-  InputLeftElement,
-  InputRightElement,
-} from "@chakra-ui/react";
-import {
-  faCircleDown,
-  faFolderOpen,
-  faHouseChimney,
-  faRefresh,
-  faSearch,
-  faTimes,
-  faTimesCircle,
-  faWifiStrong,
-} from "@fortawesome/free-solid-svg-icons";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import React, { useMemo } from "react";
+import { Copy, Minus, Satellite, Square, Wifi, X } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
-import styled from "styled-components";
 import { mainActions } from "../actions/main-actions";
 import { useAppDispatch, useAppSelector } from "./app";
-import { useTypedNavigate } from "./mainWindow";
 import { networkSettingsSlice } from "./network-settings/network-settings-state";
 
-// import { ElectonAPI } from "../tools/ElectronApi";
+// import { ElectonAPI } from "../tools/ElectonApi";
 
 // const { ipcRenderer } = window.require('electron')
 
@@ -63,138 +44,117 @@ export const useHelperSearch = () => {
 };
 
 export const SystemHelper = () => {
-  const navigate = useTypedNavigate();
   const dispatch = useDispatch();
-  const { value, setValue, searchEnabled } = useHelperSearch();
+  const isLoading = useIsLoading();
+  const [isMaximized, setIsMaximized] = useState(false);
+
+  // Check window state on mount and after maximize/minimize
+  useEffect(() => {
+    const checkMaximized = async () => {
+      const maximized = await window.ElectronAPI.invoke.windowIsMaximized();
+      setIsMaximized(maximized);
+    };
+
+    checkMaximized();
+
+    // Listen for window state changes
+    const interval = setInterval(checkMaximized, 100);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleMinimize = async () => {
+    await window.ElectronAPI.invoke.windowMinimize();
+  };
+
+  const handleMaximize = async () => {
+    await window.ElectronAPI.invoke.windowMaximize();
+    // Update state after a short delay
+    setTimeout(async () => {
+      const maximized = await window.ElectronAPI.invoke.windowIsMaximized();
+      setIsMaximized(maximized);
+    }, 100);
+  };
+
+  const handleClose = async () => {
+    await window.ElectronAPI.invoke.windowClose();
+  };
+
+  // Windows 11 style: buttons are full height with 16:9 aspect ratio
+  // Typical Windows 11 title bar height is ~32px, buttons are ~46px wide (16:9 = 46:26)
+  const buttonWidth = 46; // 16:9 ratio: 46px width for ~26px height
+  const titleBarHeight = 32; // Slightly smaller than default
 
   return (
-    <>
-      <StyledHelper>
-        <span
-          title="Close app"
-          onClick={() => {
-            console.log("aaa", window as any);
-            window.close();
-            // ;(window as any).api.send('message', {data: 123})
+    <div
+      className="bg-gray-800 px-0 flex items-center justify-between border-b border-gray-700 select-none"
+      style={
+        {
+          WebkitAppRegion: "drag",
+          height: `${titleBarHeight}px`,
+        } as React.CSSProperties
+      }
+    >
+      <div
+        className="flex items-center gap-2 px-3 h-full"
+        style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
+      >
+        <Satellite size={14} className="text-blue-400" />
+        <span className="text-xs font-medium text-gray-200">
+          USGS LST Loader
+        </span>
+      </div>
 
-            // ipcRenderer.emit('message', {data: 123})
-          }}
-        >
-          <FontAwesomeIcon icon={faTimes} />
-        </span>
-        <span title="Reload page" onClick={() => location.reload()}>
-          <FontAwesomeIcon icon={faRefresh} />
-        </span>
-        <span
-          title="Open out folder"
-          onClick={() => window.ElectronAPI.invoke.openExplorer("")}
-        >
-          <FontAwesomeIcon icon={faFolderOpen} />
-        </span>
-
-        <span
+      <div
+        className="flex items-center h-full"
+        style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+      >
+        <div className="flex items-center gap-1.5 mr-1 px-2 h-full">
+          <Wifi
+            size={12}
+            className={isLoading ? "text-green-400" : "text-gray-400"}
+          />
+          <span className="text-[10px] text-gray-400">
+            {isLoading ? "Loading" : "Ready"}
+          </span>
+        </div>
+        <button
           title="Settings"
+          className="h-full hover:bg-gray-700/50 transition-colors flex items-center justify-center"
+          style={{ width: `${buttonWidth}px` }}
           onClick={() => dispatch(networkSettingsSlice.actions.openSettings())}
         >
-          <FontAwesomeIcon icon={faWifiStrong} />
-        </span>
-        <DragArea style={{ flex: 1, height: 0 }} />
-        {searchEnabled && (
-          <Flex
-            style={{ direction: "ltr" }}
-            position="absolute"
-            width={"100%"}
-            pointerEvents={"none"}
-            height={"100%"}
-            alignItems={"center"}
-            justifyContent={"center"}
-          >
-            <InputGroup height={6} pointerEvents={"all"} width={"30%"}>
-              <InputLeftElement height={6}>
-                <FontAwesomeIcon icon={faSearch} />
-              </InputLeftElement>
-              <Input
-                height={6}
-                placeholder={"search"}
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
-              />
-              <InputRightElement height={6}>
-                <FontAwesomeIcon
-                  onClick={() => {
-                    setValue("");
-                  }}
-                  icon={faTimesCircle}
-                />
-              </InputRightElement>
-            </InputGroup>
-          </Flex>
-        )}
-        <span title="Loading State" style={{ cursor: "default" }}>
-          <FontAwesomeIcon
-            icon={faCircleDown}
-            style={{ color: useIsLoading() ? "green" : "inherit" }}
-          />
-        </span>
-        <span title="Home" onClick={() => navigate("/")}>
-          <FontAwesomeIcon icon={faHouseChimney} />
-        </span>
-      </StyledHelper>
-    </>
+          <Wifi size={12} className="text-gray-400" />
+        </button>
+        <button
+          title="Minimize"
+          className="h-full hover:bg-gray-700/50 transition-colors flex items-center justify-center"
+          style={{ width: `${buttonWidth}px` }}
+          onClick={handleMinimize}
+        >
+          <Minus size={12} className="text-gray-300" />
+        </button>
+        <button
+          title={isMaximized ? "Restore Down" : "Maximize"}
+          className="h-full hover:bg-gray-700/50 transition-colors flex items-center justify-center"
+          style={{ width: `${buttonWidth}px` }}
+          onClick={handleMaximize}
+        >
+          {isMaximized ? (
+            <Copy size={10} className="text-gray-300 -scale-x-100" />
+          ) : (
+            <Square size={10} className="text-gray-300" />
+          )}
+        </button>
+        <button
+          title="Close"
+          className="h-full hover:bg-red-500/20 hover:text-red-400 transition-colors flex items-center justify-center"
+          style={{ width: `${buttonWidth}px` }}
+          onClick={handleClose}
+        >
+          <X size={12} className="text-gray-300" />
+        </button>
+      </div>
+    </div>
   );
 };
-
-const DragArea = styled.div`
-  -webkit-app-region: drag !important;
-  user-select: none;
-`;
-
-const StyledHelper = styled(DragArea)`
-  position: fixed;
-  display: flex;
-  width: 100%;
-  direction: rtl;
-  align-items: center;
-  padding: 0 4px;
-  height: 40px;
-  color: gainsboro;
-  right: 0;
-  top: 0;
-  z-index: 10;
-  border-bottom: 1px solid rgb(233, 233, 233);
-  background-color: rgba(62, 62, 62, 0.071);
-  & > * {
-    -webkit-app-region: no-drag;
-    padding: 0.5em 0.5em;
-    cursor: pointer;
-    mix-blend-mode: color-burn;
-  }
-
-  & > .close-btn {
-    position: relative;
-    height: 100%;
-    color: rgb(144, 144, 144);
-    display: block;
-    &:hover {
-      color: gray;
-    }
-    &::after {
-      --rotate: -45deg;
-    }
-    &::before {
-      --rotate: 45deg;
-    }
-    &::after,
-    &::before {
-      content: "";
-      display: block;
-      position: absolute;
-      width: 0.7em;
-      height: 2px;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%) rotate(var(--rotate));
-      background-color: currentColor;
-    }
-  }
-`;

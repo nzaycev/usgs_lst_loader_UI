@@ -1,58 +1,13 @@
 import { app } from "electron";
-import { ipcMain } from "electron-typescript-ipc";
-import type { Api } from "../../tools/ElectronApi";
-import type {
-  ISceneState,
-  RunArgs,
-  USGSLayerType,
-} from "../../actions/main-actions";
-import { FsWatcher } from "../../backend/fs-watcher";
-import { isNumber } from "lodash";
 import fs from "fs";
 import path from "path";
-import { exec } from "child_process";
+import type { ISceneState, USGSLayerType } from "../../actions/main-actions";
+import { FsWatcher } from "../../backend/fs-watcher";
 
 export function setupDownloadHandlers(
   mainWindow: Electron.BrowserWindow,
   fsWatcher: FsWatcher
 ) {
-  ipcMain.handle<Api>("download", async (_, sceneId: string, args: RunArgs) => {
-    const publicPath = path.join(
-      process.env.APP_DEV ? process.cwd() : process.resourcesPath,
-      "public"
-    );
-    const appdataPath = path.join(app.getPath("userData"), "localStorage");
-    const scenePath = path.join(appdataPath, sceneId);
-    const calculationProcessPath = path.join(
-      publicPath,
-      "tasks/calculation.exe"
-    );
-
-    const runArgs: string[] = ["--path", `"${scenePath}"`];
-    if (args.useQAMask) runArgs.push("--useQAMask");
-    if (args.emissionCalcMethod)
-      runArgs.push("--emissionCalcMethod", `"${args.emissionCalcMethod}"`);
-    if (isNumber(args.emission))
-      runArgs.push("--emission", args.emission.toString());
-    Object.entries(args.outLayers).forEach(([outLayerKey, required]) => {
-      if (required) runArgs.push(`--save${outLayerKey}`);
-    });
-    if (args.saveDirectory) runArgs.push("--out", `"${args.saveDirectory}"`);
-    if (args.layerNamePattern)
-      runArgs.push("--layerPattern", `"${args.layerNamePattern}"`);
-
-    const calculationProcess = exec(
-      `start /wait "Calculation of ${sceneId}" "${calculationProcessPath}" ${runArgs.join(
-        " "
-      )}`,
-      (...args: any) => {
-        console.log("Calculate", scenePath, JSON.stringify(args, null, 2));
-      }
-    );
-
-    return `"${calculationProcessPath}" ${runArgs.join(" ")}`;
-  });
-
   mainWindow.webContents.session.on("will-download", (event, item) => {
     const fn = item.getFilename().split(".TIF")[0];
     const [dir, type] = fn.split("_T1_");
@@ -75,6 +30,10 @@ export function setupDownloadHandlers(
     }
     item.setSavePath(layerPath);
     const totalSize = item.getTotalBytes();
+
+    // Добавляем в активные загрузки
+    fsWatcher.addActiveDownload(sceneId, type);
+
     fsWatcher.setState(sceneId, (prev) => ({
       ...prev,
       donwloadedFiles: {
@@ -85,20 +44,52 @@ export function setupDownloadHandlers(
         },
       },
     }));
-    item.on("updated", (event, state) => {
+    item.on("updated", (_event, state) => {
       if (state === "interrupted") {
         console.log("Download is interrupted but can be resumed");
+        // Пытаемся автоматически возобновить загрузку, если это возможно
+        if (item.canResume()) {
+          console.log("Resuming interrupted download...");
+          item.resume();
+        } else {
+          console.error("Download cannot be resumed");
+        }
       } else if (state === "progressing") {
         if (item.isPaused()) {
           console.log("Download is paused");
         } else {
-          // console.log(`progress: ${item.getReceivedBytes() / totalSize}`);
+          // Обновляем прогресс
+          const progress = item.getReceivedBytes() / totalSize;
+          fsWatcher.setState(sceneId, (prev) => ({
+            ...prev,
+            donwloadedFiles: {
+              ...prev.donwloadedFiles,
+              [type]: {
+                ...prev.donwloadedFiles[type as USGSLayerType],
+                progress,
+              },
+            },
+          }));
         }
       }
     });
-    item.once("done", (event, state) => {
+    item.once("done", (_event, state) => {
+      // Удаляем из активных загрузок
+      fsWatcher.removeActiveDownload(sceneId, type);
+
       if (state === "completed") {
         console.log("Download successfully");
+        // Устанавливаем прогресс в 1
+        fsWatcher.setState(sceneId, (prev) => ({
+          ...prev,
+          donwloadedFiles: {
+            ...prev.donwloadedFiles,
+            [type]: {
+              ...prev.donwloadedFiles[type as USGSLayerType],
+              progress: 1,
+            },
+          },
+        }));
       } else {
         console.log(`Download failed: ${state}`);
       }

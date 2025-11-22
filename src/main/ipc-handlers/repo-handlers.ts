@@ -1,9 +1,9 @@
-import { ipcMain } from "electron-typescript-ipc";
 import { app } from "electron";
-import type { Api, DownloadProps } from "../../tools/ElectronApi";
-import type { ISceneState } from "../../actions/main-actions";
+import { ipcMain } from "electron-typescript-ipc";
 import fs from "fs";
 import path from "path";
+import type { ISceneState } from "../../actions/main-actions";
+import type { Api, DownloadProps } from "../../tools/ElectronApi";
 
 export function setupRepoHandlers() {
   /**
@@ -11,11 +11,7 @@ export function setupRepoHandlers() {
    */
   ipcMain.handle<Api>(
     "addRepo",
-    async (
-      _,
-      { displayId, entityId, ds }: DownloadProps,
-      alsoDownload: boolean
-    ) => {
+    async (_, { displayId, entityId, ds }: DownloadProps) => {
       const appdataPath = path.join(app.getPath("userData"), "localStorage");
       const scenePath = path.join(appdataPath, displayId);
       if (!fs.existsSync(scenePath)) {
@@ -28,6 +24,7 @@ export function setupRepoHandlers() {
         scenePath,
         entityId,
         displayId,
+        status: "new", // Новый статус, файлы еще не загружены
         donwloadedFiles: Object.assign(
           {},
           ...ds.map((item) => ({
@@ -37,10 +34,10 @@ export function setupRepoHandlers() {
           }))
         ),
         calculated: false,
+        calculations: [],
       };
       fs.writeFileSync(indexFilePath, JSON.stringify(sceneState, null, 2));
       console.log({ indexFilePath, sceneState });
     }
   );
 }
-

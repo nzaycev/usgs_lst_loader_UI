@@ -41,8 +41,8 @@ export type RequestApi = {
   openExplorer: (str: string) => Promise<void>;
   watch: () => Promise<Partial<Record<DisplayId, ISceneState>>>;
   checkLastDate: () => Promise<string>;
-  download: (sceneId: string, args: RunArgs) => Promise<string>;
-  addRepo: (arg: DownloadProps, alsoDownload?: boolean) => Promise<void>;
+  calculate: (sceneId: string, args: RunArgs) => Promise<string>;
+  addRepo: (arg: DownloadProps) => Promise<void>;
   getStoreValue: (key: keyof SettingsChema | string) => Promise<unknown>;
   setStoreValue: (
     key: keyof SettingsChema | string,
@@ -106,6 +106,12 @@ export type RequestApi = {
   sendLoginDialogResult: (
     result: { username: string; token: string } | null
   ) => Promise<void>;
+  windowMinimize: () => Promise<void>;
+  windowMaximize: () => Promise<void>;
+  windowClose: () => Promise<void>;
+  windowIsMaximized: () => Promise<boolean>;
+  deleteScene: (displayId: string) => Promise<void>;
+  stopCalculation: (displayId: string) => Promise<void>;
 };
 
 export type ParsedPath = {

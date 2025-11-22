@@ -1,12 +1,39 @@
 import argparse
 from datetime import datetime
-import json
-import math
 import os
-import sys
 from alive_progress import alive_bar
+import sys
+from contextlib import contextmanager
 
 import time
+from progress_emit import emitProgress
+
+# Helper для создания прогресс-бара с fallback при ошибках
+class DummyBar:
+    """Пустой бар для fallback при ошибках alive_bar"""
+    def __call__(self):
+        pass
+    @property
+    def text(self):
+        return self
+    @text.setter
+    def text(self, value):
+        pass
+
+@contextmanager
+def safe_alive_bar(total, title, **kwargs):
+    """Создает alive_bar с обработкой ошибок кодировки и TTY"""
+    # Пробуем использовать alive_bar с отключенным режимом (безопаснее)
+    # Если нужен визуальный прогресс, можно попробовать disable=False, но это может вызвать ошибки
+    try:
+        bar_context = alive_bar(total, title=title, bar='blocks', spinner='classic', disable=True, **kwargs)
+        with bar_context as bar:
+            yield bar
+    except:
+        # Если даже disable=True не работает, используем fallback
+        dummy = DummyBar()
+        yield dummy
+
 from lst_maths import calcBT, calcEmissionWithNdmiLog, calcEmissionWithNdviDiapasons, calcEmissionWithNdviLog, calcEmissionWithVegprop, calcLST, calcNDMI, calcNDVI, calcRadiance, calcSurfRad, calcVegProp
 from raster_tools import getBandByName, saveRaster
 
@@ -68,12 +95,16 @@ def calcAllLST():
     sceneId = dir.split('\\')[-1]
     date = sceneId.split('_')[3]
     outTemplate = dir + '/' + outDirName + '/{0}.TIF' if str.startswith(outDirName, './') else outDirName + '/{0}.TIF'
-    emit = emitToFile
-
-    logger
-    with alive_bar(6, title='Reading bands') as bar:            
+    i = 0
+    with safe_alive_bar(7, title='Reading bands') as bar:
         def getBandWithLog(x, pathTemplate, scaleFactor):
-            bar.text = f'-> Reading band {x}...'
+            nonlocal i
+            i += 1
+            emitProgress(1 / 3 * i / 7, 'Reading')
+            try:
+                bar.text = f'-> Reading band {x}...'
+            except:
+                pass  # Игнорируем ошибки установки текста
             res, min, max, _ = getBandByName(x, pathTemplate)
             bar()
             return applyScaleFactor(res, scaleFactor)
@@ -94,13 +125,17 @@ def calcAllLST():
         else:
             saveRaster(outTemplate.format(_name), pathTemplate.format(Band.B5_NAME), x)
 
-    # emit(0.1)
-    max_steps = 6 if args.emission else 8
+    max_steps = 7 if args.emission else 9
     layers = []
-    with alive_bar(max_steps, title='Calculaion') as bar:     
+    emitProgress(1 / 3, 'Calculation')  # Начало стадии Calculation
+    with safe_alive_bar(max_steps, title='Calculaion') as bar:
+        i = 0   
         def doWithProgress(callback, name):
             result = callback()
             bar()
+            nonlocal i
+            i += 1
+            emitProgress(1 / 3 + 1 / 3 * i / max_steps, 'Calculation')
             if vars(args).get('save' + name):
                 layers.append({"band": result if name != "NDVI" else result[0], "name": name})
             return result
@@ -135,23 +170,23 @@ def calcAllLST():
         qa_band = getBand(Band.BQA)
         _lst = numpy.where(qa_band == 21824, _lst, numpy.nan)
 
-    with alive_bar(len(layers), title='Saving') as bar:     
+    # Явно инициализируем прогресс при переходе на стадию Saving
+    # Это гарантирует, что прогресс не будет откатываться назад
+    if len(layers) > 0:
+        emitProgress(2 / 3, 'Saving')  # Начало стадии Saving
+    
+    with safe_alive_bar(len(layers), title='Saving') as bar:    
+        i = 0 
         def saveWithProgress(band, name):
             save(band, name)
             bar()
+            nonlocal i
+            i += 1
+            # Прогресс от 2/3 до 1.0
+            emitProgress(2 / 3 + 1 / 3 * i / len(layers), 'Saving')
         
         for layer in layers:
             saveWithProgress(layer["band"], args.layerPattern.format(name=layer["name"], date=date))
-
-def emitToFile(x):
-    fr = open('index.json', 'r')
-    readed = json.load(fr)
-    fr.close()
-    indexFile = open('index.json', 'w')
-
-    readed['calculation'] = x
-    json.dump(readed, indexFile, indent=2)
-    indexFile.close()
 
 if __name__ == "__main__":
     os.chdir(args.path)
@@ -163,5 +198,6 @@ if __name__ == "__main__":
     #     pass
     print("Start calculation with args", args)
     calcAllLST()
+    emitProgress(1, 'Finished')
     print("Calculation has been succesfully finished", args)
-    time.sleep(2)
+    time.sleep(5)

@@ -1,8 +1,6 @@
 import { CloseButton, Link, Spinner } from "@chakra-ui/react";
-import { faBan, faWifi } from "@fortawesome/free-solid-svg-icons";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { Wifi, WifiOff } from "lucide-react";
 import React, { ReactNode, useEffect, useState } from "react";
-import styled, { keyframes } from "styled-components";
 import { useAppDispatch, useAppSelector } from "../app";
 import { networkSettingsSlice } from "../network-settings/network-settings-state";
 import { NetworkState, testNetwork } from "./network-state";
@@ -39,7 +37,7 @@ export const NetworkTestWrapper: React.FC = ({ children }) => {
   const renderSuccess = renderMessage({
     title: (
       <>
-        network state <FontAwesomeIcon icon={faWifi} />
+        network state <Wifi size={18} className="inline" />
       </>
     ),
     message: "network state is ok",
@@ -48,7 +46,7 @@ export const NetworkTestWrapper: React.FC = ({ children }) => {
   const renderError = renderMessage({
     title: (
       <>
-        network state <FontAwesomeIcon icon={faBan} />
+        network state <WifiOff size={18} className="inline" />
       </>
     ),
     message: (
@@ -74,54 +72,38 @@ export const NetworkTestWrapper: React.FC = ({ children }) => {
     }
   }, [networkState]);
 
+  const colorMap: Record<NetworkState, string> = {
+    [NetworkState.Stable]: "bg-green-600",
+    [NetworkState.Unstable]: "bg-red-600",
+    [NetworkState.Unknown]: "bg-gray-600",
+  };
+
   return (
     <>
       {children}
-      <ToastContainer state={networkState} opened={opened}>
+      <div
+        className={`animate-[slideUp_0.5s] shadow-[0px_10px_10px_10px_rgba(0,0,0,0.63)] p-4 fixed bottom-0 w-full text-center flex flex-col transition-all duration-500 text-white ${
+          colorMap[networkState]
+        } ${opened ? "translate-y-0" : "translate-y-full"}`}
+      >
         <CloseButton
           onClick={() => setOpened(false)}
-          pos="absolute"
-          right={12}
+          className="absolute right-3"
         />
         {networkState === NetworkState.Unstable && renderError}
         {networkState === NetworkState.Stable && renderSuccess}
         {networkState === NetworkState.Unknown && renderDefault}
-      </ToastContainer>
+      </div>
+      <style>{`
+        @keyframes slideUp {
+          0% {
+            transform: translateY(100%);
+          }
+          100% {
+            transform: translateY(0%);
+          }
+        }
+      `}</style>
     </>
   );
 };
-
-const slideUp = keyframes`
-  0% {
-    transform: translateY(100%);
-  }
-  100% {
-    transform: translateX(0%);
-  }
-`;
-
-const colorMap: Record<NetworkState, string> = {
-  [NetworkState.Stable]: "green",
-  [NetworkState.Unstable]: "red",
-  [NetworkState.Unknown]: "gray",
-};
-
-const ToastContainer = styled.div<{ state: NetworkState; opened: boolean }>`
-  animation: ${slideUp} 0.5s;
-  box-shadow: 0px 10px 10px 10px #000000a1;
-  padding: 16px;
-  position: fixed;
-  bottom: 0;
-  width: 100%;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  background-color: ${({ state }) => colorMap[state]};
-  transition: all 0.5s;
-  transform: ${({ opened }) =>
-    opened ? "translateY(0%)" : "translateY(100%)"};
-  color: white;
-  h4 {
-    font-weight: 500;
-  }
-`;

@@ -21,12 +21,43 @@ export interface ISceneMetadata {
   displayName?: string;
 }
 
+export interface ICalculationResult {
+  resultsPath: string; // Path to calculation results directory
+  parameters: {
+    useQAMask?: boolean;
+    emission?: number;
+    outLayers?: Record<string, boolean>;
+    saveDirectory?: string;
+    layerNamePattern?: string;
+    emissionCalcMethod?: string;
+  };
+  startTime: string; // ISO date string
+  endTime?: string; // ISO date string, undefined if still running
+  status: "running" | "completed" | "failed" | "cancelled" | "error";
+  pid?: number; // Process ID if running
+  progress?: number; // Overall progress 0-1
+  stage?: string; // Current calculation stage
+  error?: string; // Error message if failed
+  exitCode?: number; // Process exit code
+  stderrLines?: string[]; // Last lines from stderr for error display
+  outputSize?: number; // Total size of output files in bytes
+}
+
+export type SceneStatus =
+  | "new"
+  | "downloading"
+  | "downloading cancelled"
+  | "calculating"
+  | "calculation error"
+  | "calculated"
+  | "downloaded";
+
 export interface ISceneState {
   isRepo: boolean; // was it added by app or manually
   scenePath: string;
   entityId: string;
   displayId: string;
-  calculationPid?: number;
+  status: SceneStatus; // Status determined by main process
   donwloadedFiles: Record<
     USGSLayerType,
     {
@@ -35,8 +66,10 @@ export interface ISceneState {
       progress?: number;
     }
   >;
-  calculation: number;
+  calculation?: number;
+  calculationStep?: string;
   calculated: boolean;
+  calculations?: ICalculationResult[]; // Array of all calculations (optional for backward compatibility)
   metadata?: ISceneMetadata;
 }
 interface IMainState {
@@ -47,6 +80,11 @@ interface IMainState {
   authorized: boolean;
   searchValue: string;
   searchEnabled: boolean;
+  selectedIds: DisplayId[];
+  isActionBusy: boolean;
+  // Список сцен, для которых идет процесс начала загрузки (busy state кнопки)
+  // Используется для предотвращения двойных кликов, а не для отслеживания фактической загрузки
+  downloadingScenes: DisplayId[];
 }
 
 const initialState: IMainState = {
@@ -56,6 +94,9 @@ const initialState: IMainState = {
   authorized: false,
   searchValue: "",
   searchEnabled: false,
+  selectedIds: [],
+  isActionBusy: false,
+  downloadingScenes: [],
 };
 
 export const watchScenesState = createAsyncThunk<
@@ -87,12 +128,12 @@ export const addSceneToRepo = createAsyncThunk<
   }
 });
 
-export const downloadScene = createAsyncThunk<
+export const calculateScene = createAsyncThunk<
   string,
   { displayId: DisplayId; args: RunArgs }
->("scenes/download", async (payload, thunkApi) => {
+>("scenes/calculate", async (payload, thunkApi) => {
   try {
-    return window.ElectronAPI.invoke.download(payload.displayId, payload.args);
+    return window.ElectronAPI.invoke.calculate(payload.displayId, payload.args);
     // return;
   } catch (e) {
     console.error(e);
@@ -171,6 +212,33 @@ const mainActions = createSlice({
     setSearch(state, action: PayloadAction<string>) {
       state.searchValue = action.payload;
     },
+    setSelectedIds(state, action: PayloadAction<DisplayId[]>) {
+      state.selectedIds = action.payload;
+    },
+    toggleSelectedId(state, action: PayloadAction<DisplayId>) {
+      const id = action.payload;
+      if (state.selectedIds.includes(id)) {
+        state.selectedIds = state.selectedIds.filter((i) => i !== id);
+      } else {
+        state.selectedIds.push(id);
+      }
+    },
+    setActionBusy(state, action: PayloadAction<boolean>) {
+      state.isActionBusy = action.payload;
+    },
+    // Добавляет сцену в список загружающихся (для busy state кнопки)
+    addDownloadingScene(state, action: PayloadAction<DisplayId>) {
+      const displayId = action.payload;
+      if (!state.downloadingScenes.includes(displayId)) {
+        state.downloadingScenes.push(displayId);
+      }
+    },
+    // Удаляет сцену из списка загружающихся (освобождает кнопку)
+    removeDownloadingScene(state, action: PayloadAction<DisplayId>) {
+      state.downloadingScenes = state.downloadingScenes.filter(
+        (id) => id !== action.payload
+      );
+    },
     setDate(state, action: PayloadAction<string>) {
       state.lastAvailableDate = new Date(action.payload);
     },
@@ -220,6 +288,7 @@ const mainActions = createSlice({
         displayId,
         entityId,
         scenePath,
+        status: "new",
         donwloadedFiles: {
           QA_PIXEL: {},
           SR_B4: {},
@@ -230,6 +299,7 @@ const mainActions = createSlice({
           ST_TRAD: {},
           ST_URAD: {},
         },
+        calculations: [],
       };
     },
     unlink() {

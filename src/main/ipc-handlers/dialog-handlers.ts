@@ -1,8 +1,8 @@
 import { BrowserWindow, ipcMain as electronIpcMain } from "electron";
 import { ipcMain } from "electron-typescript-ipc";
-import type { Api } from "../../tools/ElectronApi";
+import { SettingsChema, store } from "../../backend/settings-store";
 import { checkUserPermissons } from "../../backend/usgs-api";
-import { store, SettingsChema } from "../../backend/settings-store";
+import type { Api } from "../../tools/ElectronApi";
 
 declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
 declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
@@ -16,11 +16,8 @@ export function setupDialogHandlers(mainWindow: BrowserWindow) {
         username?: string;
         token?: string;
         autoLogin?: boolean;
-        targetRoute?: string;
       }
     ): Promise<{ username: string; token: string } | null> => {
-      const targetRoute = payload.targetRoute || "/bounds";
-
       // Always show dialog immediately, even if we have stored credentials
       // The dialog will handle auto-login and show "Checking permissions..." state
       const storedCreds = store.get("userdata") as
@@ -39,11 +36,13 @@ export function setupDialogHandlers(mainWindow: BrowserWindow) {
           height: 400,
           resizable: true,
           title: "USGS Authentication",
+          darkTheme: true,
           webPreferences: {
             preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
             webSecurity: false,
           },
         });
+        dialogWindow.setBackgroundColor("#111827");
 
         // Prepare data for dialog
         const dialogData = {
@@ -62,7 +61,7 @@ export function setupDialogHandlers(mainWindow: BrowserWindow) {
         dialogWindow.show();
 
         // добавляем горячую клавишу F12 для переключения DevTools
-        dialogWindow.webContents.on("before-input-event", (event, input) => {
+        dialogWindow.webContents.on("before-input-event", (_event, input) => {
           if (
             input.key === "F12" ||
             (input.control && input.shift && input.key === "I")
@@ -129,7 +128,6 @@ export function setupDialogHandlers(mainWindow: BrowserWindow) {
                     mainWindow.webContents.send("login-success", {
                       username: result.username,
                       token: result.token,
-                      targetRoute,
                     });
                     cleanupAndResolve(result);
                   } else {

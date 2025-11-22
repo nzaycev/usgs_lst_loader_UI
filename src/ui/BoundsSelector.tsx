@@ -1,9 +1,6 @@
 import React, { useRef, useState } from "react";
 import { MapContainer } from "./mapbox/mapContainer";
 import { bboxPolygon } from "@turf/turf";
-// import { Map } from "./map";
-// import { Feature, Layer } from "react-mapbox-gl";
-import styled from "styled-components";
 import { useTypedNavigate } from "./mainWindow";
 
 type LngLat = [number, number];
@@ -31,7 +28,7 @@ export interface ISelectionCoordinates {
 }
 
 export const BoundsSelector = () => {
-  const [selectionCoordinates, setSelectionCoordinates] = useState<ISelectionCoordinates>(null);
+  const [selectionCoordinates, setSelectionCoordinates] = useState<ISelectionCoordinates | null>(null);
   const [readySelection, setReadySelection] = useState(false);
   const mapRef = useRef(null);
   const navigate = useTypedNavigate()
@@ -75,82 +72,58 @@ export const BoundsSelector = () => {
             setReadySelection(false);
           } else {
             setSelectionCoordinates((old) => ({
-              ...old,
+              ...old!,
               end: [e.lngLat.lng, e.lngLat.lat],
             }));
             setReadySelection(true);
           }
         }}
       />
-      <Tip>
-        {!readySelection ? <div>
-          <p>Поставьте 2 точки на карте</p>
-          <p>или{' '}
-            <a href='#'
-              onClick={(e) => {
-                e.preventDefault()
-                navigate("/date_list", {
-                  state: {
-                    start: [mapRef.current.getBounds()._ne.lng, mapRef.current.getBounds()._ne.lat],
-                    end: [mapRef.current.getBounds()._sw.lng, mapRef.current.getBounds()._sw.lat],
-                  }
-                });
-              }}
-            >
-              используйте границы карты
-            </a>
-          </p>
-        </div> : (
+      <div className="fixed bottom-0 bg-gray-800/90 backdrop-blur-sm w-full h-[60px] flex items-center justify-center pb-5 text-center border-t border-gray-700">
+        {!readySelection ? (
+          <div>
+            <p>Поставьте 2 точки на карте</p>
+            <p>
+              или{' '}
+              <a
+                href="#"
+                className="underline"
+                onClick={(e) => {
+                  e.preventDefault()
+                  navigate("/date_list", {
+                    state: {
+                      start: [mapRef.current.getBounds()._ne.lng, mapRef.current.getBounds()._ne.lat],
+                      end: [mapRef.current.getBounds()._sw.lng, mapRef.current.getBounds()._sw.lat],
+                    }
+                  });
+                }}
+              >
+                используйте границы карты
+              </a>
+            </p>
+          </div>
+        ) : (
           <>
-            <Button
+            <button
+              className="bg-blue-600 px-4 py-2 mx-2 rounded border-none text-white font-medium cursor-pointer hover:bg-blue-700 transition-colors"
               onClick={() => {
                 setReadySelection(false);
                 setSelectionCoordinates(null);
               }}
             >
               Изменить область
-            </Button>
-            <Button
+            </button>
+            <button
+              className="bg-blue-600 px-4 py-2 mx-2 rounded border-none text-white font-medium cursor-pointer hover:bg-blue-700 transition-colors"
               onClick={() => {
                 navigate("/date_list", { state: selectionCoordinates });
               }}
             >
               Далее
-            </Button>
-
+            </button>
           </>
         )}
-      </Tip>
+      </div>
     </div>
   );
 };
-
-const Tip = styled.div`
-  position: fixed;
-  bottom: 0;
-  background-color: rgba(255, 255, 255, 0.2);
-  width: 100%;
-  height: 60px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding-bottom: 20px;
-  text-align: center;
-  a {
-    text-decoration: underline;
-  }
-`;
-
-const Button = styled.button`
-  background-color: blue;
-  padding: 8px 16px;
-  margin: 0 8px;
-  border-radius: 4px;
-  border: none;
-  color: white;
-  font-weight: 500;
-  cursor: pointer;
-  &:hover {
-    filter: brightness(0.7);
-  }
-`;

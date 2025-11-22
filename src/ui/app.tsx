@@ -60,10 +60,17 @@ function render() {
     }
   } catch (error) {
     console.error("Error during render:", error);
+    const rootElement = document.getElementById("root");
+    if (rootElement) {
     ReactDOM.render(
-      <div>{JSON.stringify(error)}</div>,
-      document.getElementById("root")
+        <div style={{ padding: "20px", color: "red" }}>
+          <h2>Render Error</h2>
+          <pre>{JSON.stringify(error, null, 2)}</pre>
+          <pre>{error instanceof Error ? error.stack : String(error)}</pre>
+        </div>,
+        rootElement
     );
+    }
   }
 }
 

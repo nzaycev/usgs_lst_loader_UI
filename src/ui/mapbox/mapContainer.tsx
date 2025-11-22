@@ -1,7 +1,6 @@
 import mapboxgl from "mapbox-gl"; // eslint-disable-line import/no-webpack-loader-syntax
 import "mapbox-gl/dist/mapbox-gl.css";
 import React, { useEffect, useRef, useState } from "react";
-import styled from "styled-components";
 
 mapboxgl.accessToken =
   "pk.eyJ1IjoibnpheWNldiIsImEiOiJjazhudXZnaGMwMmIzM2RvM2N3MDl2dmNwIn0.cNCktRFle2xX3PsaB-l0MQ";
@@ -26,7 +25,6 @@ export const MapContainer = React.forwardRef<
   const mapCurrent = () => map.current;
 
   const setMapData = (data: any) => {
-    console.log("aaaa", mapCurrent(), data);
     mapCurrent()?.getSource("my-data")?.setData(data);
   };
 
@@ -119,9 +117,10 @@ export const MapContainer = React.forwardRef<
     if (map.current) return; // initialize map only once
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
-      style: "mapbox://styles/mapbox/streets-v11",
+      style: "mapbox://styles/mapbox/dark-v11",
       center: [lng, lat],
       zoom: zoom,
+      projection: { name: "mercator" },
     });
     map.current.getData = () => map.current.getSource("my-data")._data;
     map.current.setData = (data: any) =>
@@ -162,10 +161,5 @@ export const MapContainer = React.forwardRef<
     };
   }, [props.geoJsonData]);
 
-  return <_MapContainer ref={mapContainer} className="map-container" />;
+  return <div ref={mapContainer} className="map-container w-full h-full" />;
 });
-
-const _MapContainer = styled.div`
-  width: 100%;
-  height: 100%;
-`;

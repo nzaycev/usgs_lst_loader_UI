@@ -90,12 +90,8 @@ const MainWindowContent = () => {
 
   // Listen for login success message from main process
   useEffect(() => {
-    const handleLoginSuccess = (
-      _event: any,
-      data: { username: string; token: string; targetRoute: string }
-    ) => {
+    const handleLoginSuccess = (_event: any) => {
       dispatch(mainActions.actions.getAccess());
-      navigate(data.targetRoute as any);
     };
 
     const handle403Error = async (
@@ -165,7 +161,7 @@ const MainWindowContent = () => {
 
 export const MainWindow = () => {
   return (
-    <div className="main-window">
+    <div className="h-screen bg-gray-900 text-gray-200 flex flex-col overflow-hidden">
       <HashRouter>
         <MainWindowContent />
       </HashRouter>

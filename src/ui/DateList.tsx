@@ -1,8 +1,6 @@
 import { Spinner, useToast } from "@chakra-ui/react";
-import { faDatabase } from "@fortawesome/free-solid-svg-icons";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { Database } from "lucide-react";
 import React, { useEffect } from "react";
-import styled, { css } from "styled-components";
 import { addSceneToRepo } from "../actions/main-actions";
 import { useSearchScenesQuery } from "../actions/searchApi";
 import { useAppDispatch, useAppSelector } from "./app";
@@ -35,116 +33,74 @@ export const DateList = () => {
 
   if (error) {
     return (
-      <div style={{ padding: 40, whiteSpace: "pre-line" }}>
+      <div className="p-10 whitespace-pre-line">
         {JSON.stringify(error, null, 2)}
       </div>
     );
   }
 
   return (
-    <div
-      style={{
-        width: "100%",
-        paddingTop: 40,
-      }}
-    >
-      {isLoading ? (
-        <div
-          style={{
-            width: "100%",
-            height: "100%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Spinner />
-        </div>
-      ) : (
-        <List wait={wait}>
-          {data.results
-            .filter((x) => !value || x.displayId.includes(value))
-            .map(({ displayId, entityId, temporalCoverage, browse }: any) => {
-              const currentScene = scenes[displayId];
-              const isCurrentSceneReady = !!currentScene;
-              return (
-                <ListItem
-                  disabled={isCurrentSceneReady}
-                  key={entityId}
-                  onClick={async () => {
-                    if (!isCurrentSceneReady) {
-                      await dispatch(
-                        addSceneToRepo({
-                          displayId,
-                          entityId,
-                        })
-                      ).unwrap();
-                      toast({
-                        title: "The scene was added to main repo",
-                        position: "bottom-left",
-                        description:
-                          "You can go to the home page to start downloading",
-                        duration: 5000,
-                        isClosable: true,
-                      });
-                    }
-                  }}
-                >
-                  {temporalCoverage.startDate.split(" ")[0]}
-                  {isCurrentSceneReady && <FontAwesomeIcon icon={faDatabase} />}
-                  <Light>{displayId}</Light>
-                  {/* uncomment when virtualized */}
-                  {/* <img src={browse[0].thumbnailPath}/> */}
-                </ListItem>
-              );
-            })}
-        </List>
-      )}
+    <div className="flex-1 flex flex-col overflow-hidden p-4">
+      <div className="flex-1 overflow-auto">
+        {isLoading ? (
+          <div className="w-full h-full flex items-center justify-center">
+            <Spinner />
+          </div>
+        ) : (
+          <ul
+            className={`list-none m-0 flex-shrink-0 p-0 pb-5 max-w-md mx-auto ${
+              wait ? "opacity-50 pointer-events-none" : ""
+            }`}
+          >
+            {data.results
+              .filter((x) => !value || x.displayId.includes(value))
+              .map(({ displayId, entityId, temporalCoverage }: any) => {
+                const currentScene = scenes[displayId];
+                const isCurrentSceneReady = !!currentScene;
+                return (
+                  <li
+                    key={entityId}
+                    className={`px-4 py-2 m-0 whitespace-nowrap flex justify-center items-center rounded ${
+                      isCurrentSceneReady
+                        ? "text-blue-400 cursor-default bg-blue-900/30"
+                        : "cursor-pointer hover:bg-gray-700 text-gray-200"
+                    }`}
+                    onClick={async () => {
+                      if (!isCurrentSceneReady) {
+                        await dispatch(
+                          addSceneToRepo({
+                            displayId,
+                            entityId,
+                          })
+                        ).unwrap();
+                        toast({
+                          title: "The scene was added to main repo",
+                          position: "bottom-left",
+                          description:
+                            "You can go to the home page to start downloading",
+                          duration: 5000,
+                          isClosable: true,
+                        });
+                      }
+                    }}
+                  >
+                    <span className="mx-1">
+                      {temporalCoverage.startDate.split(" ")[0]}
+                    </span>
+                    {isCurrentSceneReady && (
+                      <Database size={16} className="mx-1" />
+                    )}
+                    <span className="text-gray-500 text-xs mx-1">
+                      {displayId}
+                    </span>
+                    {/* uncomment when virtualized */}
+                    {/* <img src={browse[0].thumbnailPath}/> */}
+                  </li>
+                );
+              })}
+          </ul>
+        )}
+      </div>
     </div>
   );
 };
-
-const Light = styled.span`
-  color: gray;
-  font-size: 12px;
-`;
-
-const List = styled.ul<{ wait: boolean }>`
-  list-style: none;
-  margin: 0 auto;
-  flex-shrink: 0;
-  padding: 0;
-  padding-bottom: 20px;
-  max-width: 400px;
-  ${({ wait }) =>
-    wait &&
-    css`
-      opacity: 0.5;
-      pointer-events: none;
-    `}
-`;
-
-const ListItem = styled.li<{ disabled: boolean }>`
-  padding: 8px 16px;
-  margin: 0;
-  white-space: nowrap;
-  * {
-    margin: 0 4px;
-  }
-  ${({ disabled }) =>
-    !disabled
-      ? css`
-          cursor: pointer;
-          &:hover {
-            background-color: gainsboro;
-          }
-        `
-      : css`
-          color: #000069;
-          cursor: default;
-        `}
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  border-radius: 4px;
-`;

@@ -86,6 +86,24 @@ const api: Api = {
       electronIpcRenderer.send("login-dialog-result", result);
       return Promise.resolve();
     },
+    async windowMinimize() {
+      await ipcRenderer.invoke<Api>("windowMinimize");
+    },
+    async windowMaximize() {
+      await ipcRenderer.invoke<Api>("windowMaximize");
+    },
+    async windowClose() {
+      await ipcRenderer.invoke<Api>("windowClose");
+    },
+    async windowIsMaximized() {
+      return (await ipcRenderer.invoke<Api>("windowIsMaximized")) as boolean;
+    },
+    async deleteScene(displayId) {
+      await ipcRenderer.invoke<Api>("deleteScene", displayId);
+    },
+    async stopCalculation(displayId) {
+      await ipcRenderer.invoke<Api>("stopCalculation", displayId);
+    },
   },
   on: {
     stateChange(listener) {

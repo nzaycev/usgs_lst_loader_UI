@@ -22,7 +22,6 @@ import {
 } from "@chakra-ui/react";
 import { isEqual } from "lodash";
 import React, { useEffect, useState } from "react";
-import styled from "styled-components";
 import { SettingsChema } from "../../backend/settings-store";
 import { useAppDispatch, useAppSelector } from "../app";
 import { testNetwork } from "../network-test/network-state";
@@ -111,7 +110,7 @@ export const NetworkSettingsWrapper: React.FC = ({ children }) => {
             ) : (
               <>
                 <SettingsBlockTitle>
-                  <h2>Proxy settings</h2>
+                  <h2 className="text-lg font-medium">Proxy settings</h2>
                   <Switch
                     isChecked={!!tempSettings.proxy}
                     onChange={(v) => {
@@ -245,7 +244,7 @@ export const NetworkSettingsWrapper: React.FC = ({ children }) => {
                 </div>
                 <Divider mt={6} mb={4} />
                 <SettingsBlockTitle>
-                  <h2>USGS Authentication</h2>
+                  <h2 className="text-lg font-medium">USGS Authentication</h2>
                 </SettingsBlockTitle>
                 <FormControl mt={4}>
                   <FormLabel>Status</FormLabel>
@@ -312,13 +311,11 @@ export const NetworkSettingsWrapper: React.FC = ({ children }) => {
   );
 };
 
-const SettingsBlockTitle = styled.label`
-  h2 {
-    font: 18px;
-    font-weight: 500;
-  }
-  display: flex;
-  padding: 4px 0;
-  justify-content: space-between;
-  align-items: center;
-`;
+const SettingsBlockTitle: React.FC<{
+  children: React.ReactNode;
+  className?: string;
+}> = ({ children, className = "" }) => (
+  <label className={`flex py-1 justify-between items-center ${className}`}>
+    {children}
+  </label>
+);

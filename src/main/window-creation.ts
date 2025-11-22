@@ -1,11 +1,11 @@
 import { app, BrowserWindow, session } from "electron";
-import { FsWatcher } from "../backend/fs-watcher";
-import { setOpenLoginDialogHandler } from "../backend/usgs-api";
-import { applyProxySettings } from "./proxy-settings";
-import type { INetworkSettings } from "../ui/network-settings/network-settings-state";
-import { store } from "../backend/settings-store";
-import path from "path";
 import fs from "fs";
+import path from "path";
+import { FsWatcher } from "../backend/fs-watcher";
+import { store } from "../backend/settings-store";
+import { setOpenLoginDialogHandler } from "../backend/usgs-api";
+import type { INetworkSettings } from "../ui/network-settings/network-settings-state";
+import { applyProxySettings } from "./proxy-settings";
 
 declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
 declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
@@ -27,14 +27,16 @@ export function createMainWindow(fsWatcher: FsWatcher): BrowserWindow {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
     title: "USGS Loader",
-    height: 600,
-    titleBarStyle: "hidden",
-    width: 800,
+    height: 800,
+    frame: false, // Required for -webkit-app-region to work on Windows
+    width: 1200,
+    darkTheme: true,
     webPreferences: {
       preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
       webSecurity: false,
     },
   });
+  mainWindow.setBackgroundColor("#111827");
 
   fsWatcher.setMainWindow(mainWindow);
 
@@ -64,4 +66,3 @@ export function createMainWindow(fsWatcher: FsWatcher): BrowserWindow {
 
   return mainWindow;
 }
-
