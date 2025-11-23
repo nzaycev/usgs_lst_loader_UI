@@ -1,11 +1,11 @@
 import { contextBridge, ipcRenderer as electronIpcRenderer } from "electron";
 import { ipcRenderer } from "electron-typescript-ipc";
-import { Api } from "./src/tools/ElectronApi";
 import type {
   DisplayId,
   ISceneState,
   USGSLayerType,
 } from "./src/actions/main-actions";
+import { Api } from "./src/tools/ElectronApi";
 import type { INetworkSettings } from "./src/ui/network-settings/network-settings-state";
 
 const api: Api = {
@@ -20,6 +20,13 @@ const api: Api = {
     },
     async checkLastDate() {
       return (await ipcRenderer.invoke<Api>("checkLastDate")) as string;
+    },
+    async calculate(sceneId, args) {
+      return (await ipcRenderer.invoke<Api>(
+        "calculate",
+        sceneId,
+        args
+      )) as string;
     },
     async download(...args) {
       return (await ipcRenderer.invoke<Api>("download", ...args)) as string;
@@ -105,6 +112,16 @@ const api: Api = {
       electronIpcRenderer.send("settings-dialog-result", result);
       return Promise.resolve();
     },
+    async openCalculationDialog(payload) {
+      return (await ipcRenderer.invoke<Api>(
+        "openCalculationDialog",
+        payload
+      )) as import("./src/actions/main-actions").RunArgs | null;
+    },
+    sendCalculationDialogResult(result) {
+      electronIpcRenderer.send("calculation-dialog-result", result);
+      return Promise.resolve();
+    },
     async windowMinimize() {
       await ipcRenderer.invoke<Api>("windowMinimize");
     },
@@ -133,13 +150,19 @@ const api: Api = {
       return (await ipcRenderer.invoke<Api>("usgsSearchScenes", filter)) as any;
     },
     async usgsReindexScene(displayId) {
-      return (await ipcRenderer.invoke<Api>("usgsReindexScene", displayId)) as any;
+      return (await ipcRenderer.invoke<Api>(
+        "usgsReindexScene",
+        displayId
+      )) as any;
     },
     async usgsCheckDates() {
       return (await ipcRenderer.invoke<Api>("usgsCheckDates")) as string;
     },
     async usgsGetDownloadDS(entityId) {
-      return (await ipcRenderer.invoke<Api>("usgsGetDownloadDS", entityId)) as Array<{
+      return (await ipcRenderer.invoke<Api>(
+        "usgsGetDownloadDS",
+        entityId
+      )) as Array<{
         id: string;
         url: string;
         layerName: USGSLayerType;
@@ -255,7 +278,7 @@ const sendLogToMain = (
         try {
           // Try to serialize, but handle circular references
           return JSON.parse(
-            JSON.stringify(arg, (key, value) => {
+            JSON.stringify(arg, (_key, value) => {
               if (typeof value === "function") {
                 return `[Function: ${value.name || "anonymous"}]`;
               }

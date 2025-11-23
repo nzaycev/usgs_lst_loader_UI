@@ -340,4 +340,100 @@ export function setupDialogHandlers(
       });
     }
   );
+
+  ipcMain.handle<Api>(
+    "openCalculationDialog",
+    async (
+      _,
+      payload: {
+        initialSettings?: import("../../actions/main-actions").RunArgs;
+      }
+    ): Promise<import("../../actions/main-actions").RunArgs | null> => {
+      return new Promise((resolve) => {
+        let isResolved = false;
+
+        const dialogWindow = new BrowserWindow({
+          parent: mainWindow,
+          modal: true,
+          titleBarStyle: "hidden",
+          width: 500,
+          minWidth: 400,
+          height: 600,
+          minHeight: 400,
+          resizable: true,
+          title: "Preparing for calculation",
+          darkTheme: true,
+          webPreferences: {
+            preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
+            webSecurity: false,
+          },
+        });
+        dialogWindow.setBackgroundColor("#111827");
+
+        const cleanupAndResolve = (
+          result: import("../../actions/main-actions").RunArgs | null
+        ) => {
+          if (isResolved) return;
+          isResolved = true;
+
+          try {
+            electronIpcMain.removeListener(
+              "calculation-dialog-result",
+              resultHandler
+            );
+          } catch (e) {
+            console.error("Error removing listener:", e);
+          }
+
+          try {
+            if (!dialogWindow.isDestroyed()) {
+              dialogWindow.close();
+            }
+          } catch (e) {
+            console.error("Error closing window:", e);
+          }
+
+          resolve(result);
+        };
+
+        const resultHandler = (
+          event: Electron.IpcMainEvent,
+          result: import("../../actions/main-actions").RunArgs | null
+        ) => {
+          if (event.sender === dialogWindow.webContents) {
+            cleanupAndResolve(result);
+          }
+        };
+
+        electronIpcMain.on("calculation-dialog-result", resultHandler);
+
+        const dialogData = {
+          initialSettings: payload.initialSettings,
+        };
+        const data = encodeURIComponent(JSON.stringify(dialogData));
+        dialogWindow.loadURL(
+          `${MAIN_WINDOW_WEBPACK_ENTRY}#calculation-dialog:${data}`
+        );
+
+        dialogWindow.show();
+
+        dialogWindow.webContents.on("before-input-event", (_event, input) => {
+          if (
+            input.key === "F12" ||
+            (input.control && input.shift && input.key === "I")
+          ) {
+            if (dialogWindow.webContents.isDevToolsOpened()) {
+              dialogWindow.webContents.closeDevTools();
+            } else {
+              dialogWindow.webContents.openDevTools();
+            }
+          }
+        });
+
+        dialogWindow.on("closed", () => {
+          cleanupAndResolve(null);
+        });
+      });
+    }
+  );
 }

@@ -15,7 +15,7 @@ import {
   watchScenesState,
 } from "../actions/main-actions";
 import { useAppDispatch, useAppSelector } from "./app";
-import { DownloadManager } from "./download-manager/download-manager";
+import { DownloadManagerPage } from "./pages/download-manager-page/download-manager-page";
 import { SystemHelper } from "./SystemHelper";
 
 interface AppRoutes {
@@ -118,7 +118,7 @@ const MainWindowContent = () => {
     <>
       <SystemHelper />
       <Routes>
-        <TypedRoute path="/" element={<DownloadManager />} />
+        <TypedRoute path="/" element={<DownloadManagerPage />} />
         <TypedRoute path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>

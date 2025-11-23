@@ -118,6 +118,10 @@ export type RequestApi = {
   ) => Promise<void>;
   openSettingsDialog: () => Promise<boolean | null>;
   sendSettingsDialogResult: (result: boolean | null) => Promise<void>;
+  openCalculationDialog: (payload: {
+    initialSettings?: RunArgs;
+  }) => Promise<RunArgs | null>;
+  sendCalculationDialogResult: (result: RunArgs | null) => Promise<void>;
   windowMinimize: () => Promise<void>;
   windowMaximize: () => Promise<void>;
   windowClose: () => Promise<void>;

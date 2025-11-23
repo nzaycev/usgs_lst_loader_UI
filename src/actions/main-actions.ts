@@ -132,11 +132,14 @@ export const calculateScene = createAsyncThunk<
   { displayId: DisplayId; args: RunArgs }
 >("scenes/calculate", async (payload, thunkApi) => {
   try {
-    return window.ElectronAPI.invoke.calculate(payload.displayId, payload.args);
-    // return;
+    const result = await window.ElectronAPI.invoke.calculate(
+      payload.displayId,
+      payload.args
+    );
+    return result;
   } catch (e) {
-    console.error(e);
-    thunkApi.rejectWithValue(e);
+    console.error("Error in calculateScene thunk:", e);
+    return thunkApi.rejectWithValue(e);
   }
 });
 

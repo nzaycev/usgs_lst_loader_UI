@@ -1,4 +1,5 @@
 import { ChakraProvider, Spinner, useToast } from "@chakra-ui/react";
+import { darkTheme } from "./theme";
 import { bboxPolygon } from "@turf/turf";
 import { ChevronLeft, Database } from "lucide-react";
 import React, {
@@ -410,7 +411,7 @@ const SearchSceneDialogWindow: React.FC = () => {
 export const SearchSceneDialogWindowApp = () => {
   return (
     <Provider store={store}>
-      <ChakraProvider>
+      <ChakraProvider theme={darkTheme}>
         <MapProvider>
           <SearchSceneDialogWindow />
         </MapProvider>

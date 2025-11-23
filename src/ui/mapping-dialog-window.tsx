@@ -10,6 +10,7 @@ import {
   useToast,
 } from "@chakra-ui/react";
 import React, { useEffect, useState } from "react";
+import { darkTheme } from "./theme";
 import { USGSLayerType } from "../actions/main-actions";
 import { ModalSystemHelper } from "./ModalSystemHelper";
 
@@ -431,7 +432,7 @@ const MappingDialogWindow: React.FC<MappingDialogWindowProps> = ({ toast }) => {
 
 export const MappingDialogWindowApp = () => {
   return (
-    <ChakraProvider>
+    <ChakraProvider theme={darkTheme}>
       <MappingDialogWindowWithToast />
     </ChakraProvider>
   );

@@ -243,7 +243,7 @@ export class FsWatcher {
       state[path.basename(sceneId)] = {
         displayId: indexState.displayId,
         entityId: indexState.entityId,
-        isRepo: !!indexState,
+        isRepo: indexState.isRepo,
         scenePath: item,
         status: sceneStatus,
         calculation: indexState?.calculation || 0,

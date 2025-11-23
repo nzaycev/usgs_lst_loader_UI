@@ -1,4 +1,5 @@
 import { ChakraProvider } from "@chakra-ui/react";
+import { darkTheme } from "./theme";
 import { configureStore } from "@reduxjs/toolkit";
 import React from "react";
 import ReactDOM from "react-dom";
@@ -10,6 +11,7 @@ import {
   useSelector,
 } from "react-redux";
 import logger from "redux-logger";
+import { downloadManagerSlice } from "./pages/download-manager-page/download-manager-slice";
 import { mainActions } from "../actions/main-actions";
 import { searchSceneDialogSlice } from "../actions/search-scene-dialog-slice";
 import { searchApi } from "../actions/searchApi";
@@ -23,6 +25,7 @@ import { testNetworkApi } from "./network-test/network-test-request";
 import { NetworkTestWrapper } from "./network-test/network-test-wrapper";
 import { SearchSceneDialogWindowApp } from "./search-scene-dialog-window";
 import { SettingsDialogWindowApp } from "./settings-dialog-window";
+import { CalculationDialogWindowApp } from "./pages/download-manager-page/calculation-dialog-window";
 
 function render() {
   // Проверяем, является ли это окном диалога
@@ -31,6 +34,7 @@ function render() {
   const isLoginDialog = hash.startsWith("#login-dialog:");
   const isSearchSceneDialog = hash.startsWith("#search-scene-dialog:");
   const isSettingsDialog = hash.startsWith("#settings-dialog:");
+  const isCalculationDialog = hash.startsWith("#calculation-dialog:");
 
   try {
     if (isMappingDialog) {
@@ -57,11 +61,17 @@ function render() {
         <SettingsDialogWindowApp />,
         document.getElementById("root")
       );
+    } else if (isCalculationDialog) {
+      // Рендерим диалог расчетов без Redux и других провайдеров
+      ReactDOM.render(
+        <CalculationDialogWindowApp />,
+        document.getElementById("root")
+      );
     } else {
       // Обычное главное окно
       ReactDOM.render(
         <Provider store={store}>
-          <ChakraProvider>
+          <ChakraProvider theme={darkTheme}>
             <NetworkSettingsWrapper>
               <NetworkTestWrapper>
                 <MapProvider>
@@ -104,6 +114,7 @@ export const store = configureStore({
     [searchApi.reducerPath]: searchApi.reducer,
     [testNetworkApi.reducerPath]: testNetworkApi.reducer,
     searchSceneDialog: searchSceneDialogSlice.reducer,
+    downloadManager: downloadManagerSlice.reducer,
   },
 });
 

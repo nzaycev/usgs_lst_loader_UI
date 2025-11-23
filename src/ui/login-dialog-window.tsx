@@ -9,6 +9,7 @@ import {
   Text,
   useToast,
 } from "@chakra-ui/react";
+import { darkTheme } from "./theme";
 import React, { useEffect, useState } from "react";
 import { SettingsChema } from "../main/settings-store";
 import { ModalSystemHelper } from "./ModalSystemHelper";
@@ -250,7 +251,7 @@ const LoginDialogWindow = () => {
 
 export const LoginDialogWindowApp = () => {
   return (
-    <ChakraProvider>
+    <ChakraProvider theme={darkTheme}>
       <LoginDialogWindow />
     </ChakraProvider>
   );

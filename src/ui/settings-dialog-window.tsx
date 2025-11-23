@@ -14,11 +14,12 @@ import {
   Text,
   useToast,
 } from "@chakra-ui/react";
-import { ModalSystemHelper } from "./ModalSystemHelper";
 import { isEqual } from "lodash";
 import React, { useEffect, useState } from "react";
 import { SettingsChema } from "../main/settings-store";
+import { ModalSystemHelper } from "./ModalSystemHelper";
 import { INetworkSettings } from "./network-settings/network-settings-state";
+import { darkTheme } from "./theme";
 
 type DeepPartial<T> = T extends object
   ? {
@@ -31,8 +32,9 @@ const SettingsDialogWindow: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<INetworkSettings>({});
-  const [tempSettings, setTempSettings] =
-    useState<DeepPartial<INetworkSettings>>({});
+  const [tempSettings, setTempSettings] = useState<
+    DeepPartial<INetworkSettings>
+  >({});
   const [userCreds, setUserCreds] = useState<SettingsChema["userdata"]>();
   const [authorized, setAuthorized] = useState(false);
 
@@ -41,7 +43,8 @@ const SettingsDialogWindow: React.FC = () => {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const loadedSettings = await window.ElectronAPI.invoke.watchNetworkSettings();
+        const loadedSettings =
+          await window.ElectronAPI.invoke.watchNetworkSettings();
         setSettings(loadedSettings);
         setTempSettings(loadedSettings);
         setLoading(false);
@@ -101,10 +104,7 @@ const SettingsDialogWindow: React.FC = () => {
         });
         return;
       }
-      if (
-        tempSettings.proxy.auth &&
-        !tempSettings.proxy.auth.password
-      ) {
+      if (tempSettings.proxy.auth && !tempSettings.proxy.auth.password) {
         toast({
           title: "warning",
           status: "warning",
@@ -344,11 +344,10 @@ const SettingsBlockTitle: React.FC<{
 
 export const SettingsDialogWindowApp = () => {
   return (
-    <ChakraProvider>
+    <ChakraProvider theme={darkTheme}>
       <div className="bg-gray-900 min-h-screen">
         <SettingsDialogWindow />
       </div>
     </ChakraProvider>
   );
 };
-
