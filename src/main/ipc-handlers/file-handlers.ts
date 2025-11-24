@@ -214,6 +214,7 @@ export function setupFileHandlers(
             contextIsolation: true,
           },
         });
+        dialogWindow.setBackgroundColor("#111827");
 
         // Функция для очистки и разрешения промиса
         const cleanupAndResolve = (

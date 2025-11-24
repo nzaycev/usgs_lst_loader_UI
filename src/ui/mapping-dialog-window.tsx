@@ -1,4 +1,5 @@
 import {
+  Box,
   Button,
   ChakraProvider,
   Flex,
@@ -7,12 +8,13 @@ import {
   Input,
   Select,
   SimpleGrid,
+  Text,
   useToast,
 } from "@chakra-ui/react";
 import React, { useEffect, useState } from "react";
-import { darkTheme } from "./theme";
 import { USGSLayerType } from "../actions/main-actions";
 import { ModalSystemHelper } from "./ModalSystemHelper";
+import { darkTheme } from "./theme";
 
 interface MappingDialogWindowProps {
   toast: ReturnType<typeof useToast>;
@@ -236,25 +238,19 @@ const MappingDialogWindow: React.FC<MappingDialogWindowProps> = ({ toast }) => {
   };
 
   return (
-    <div
-      style={{
-        height: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        backgroundColor: "white",
-        width: "100%",
-      }}
+    <Box
+      height="100vh"
+      display="flex"
+      flexDirection="column"
+      bg="gray.900"
+      width="100%"
+      color="gray.200"
     >
-      <ModalSystemHelper title="Map Files and Add Metadata" onClose={handleCancel} />
-      <div
-        style={{
-          padding: "20px",
-          flex: 1,
-          overflow: "auto",
-          minHeight: 0,
-          width: "100%",
-        }}
-      >
+      <ModalSystemHelper
+        title="Map Files and Add Metadata"
+        onClose={handleCancel}
+      />
+      <Box padding="20px" flex={1} overflow="auto" minHeight={0} width="100%">
         <FormControl marginBottom={4}>
           <FormLabel>Folder Path</FormLabel>
           <Input value={folderPath} isReadOnly size="sm" />
@@ -280,7 +276,7 @@ const MappingDialogWindow: React.FC<MappingDialogWindowProps> = ({ toast }) => {
           />
         </FormControl>
 
-        <div style={{ marginBottom: "16px" }}>
+        <Box marginBottom="16px">
           <FormLabel
             as="div"
             marginBottom={2}
@@ -289,23 +285,16 @@ const MappingDialogWindow: React.FC<MappingDialogWindowProps> = ({ toast }) => {
           >
             File Mapping (Required Layers)
           </FormLabel>
-          <div style={{ maxHeight: "400px", overflowY: "auto" }}>
+          <Box maxHeight="400px" overflowY="auto">
             {layerTypes.map((layerType) => {
               const selectedFile = fileMappings[layerType];
               const isFromFolder =
                 selectedFile && selectedFile.startsWith(folderPath);
-              const displayFileName = isFromFolder
-                ? folderFiles.find((f) => f.value === selectedFile)?.label ||
-                  selectedFile.split(/[/\\]/).pop() ||
-                  ""
-                : selectedFile
-                ? selectedFile.split(/[/\\]/).pop() || selectedFile
-                : "";
 
               return (
                 <FormControl key={layerType} marginBottom={2}>
                   <SimpleGrid
-                    columns={{ base: 3 }}
+                    columns={{ base: 2 }}
                     spacing={2}
                     alignItems="center"
                   >
@@ -341,43 +330,24 @@ const MappingDialogWindow: React.FC<MappingDialogWindowProps> = ({ toast }) => {
                         ...
                       </Button>
                     </Flex>
-                    {displayFileName && (
-                      <span
-                        style={{
-                          fontSize: "11px",
-                          fontWeight: "500",
-                          color: "#2D3748",
-                          padding: "4px 8px",
-                          backgroundColor: "#E2E8F0",
-                          borderRadius: "4px",
-                          wordBreak: "break-all",
-                          display: "block",
-                        }}
-                        title={selectedFile}
-                      >
-                        {displayFileName}
-                      </span>
-                    )}
                   </SimpleGrid>
                   {selectedFile && !isFromFolder && (
-                    <span
-                      style={{
-                        fontSize: "9px",
-                        color: "#718096",
-                        marginTop: "2px",
-                        display: "block",
-                        wordBreak: "break-all",
-                        fontStyle: "italic",
-                      }}
+                    <Text
+                      fontSize="9px"
+                      color="gray.400"
+                      marginTop="2px"
+                      display="block"
+                      wordBreak="break-all"
+                      fontStyle="italic"
                     >
                       {selectedFile}
-                    </span>
+                    </Text>
                   )}
                 </FormControl>
               );
             })}
-          </div>
-        </div>
+          </Box>
+        </Box>
 
         <FormControl marginBottom={4}>
           <FormLabel>Capture Date</FormLabel>
@@ -425,8 +395,8 @@ const MappingDialogWindow: React.FC<MappingDialogWindowProps> = ({ toast }) => {
             Add Folder
           </Button>
         </Flex>
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 };
 
