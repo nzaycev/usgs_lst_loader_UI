@@ -1,5 +1,4 @@
 import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
-import { testNetworkApi } from "./network-test-request";
 
 export enum NetworkState {
   Unknown,
@@ -11,15 +10,9 @@ export const testNetwork = createAsyncThunk<void, void>(
   "network/test",
   async (_, thunkApi) => {
     try {
-      thunkApi.dispatch(testNetworkApi.util.resetApiState());
-      const { error } = await thunkApi.dispatch(
-        testNetworkApi.endpoints.test.initiate()
-      );
-      if (error) {
-        return thunkApi.rejectWithValue(error);
-      }
+      await window.ElectronAPI.invoke.testNetwork();
     } catch (e) {
-      console.error(e);
+      console.error("[Network Test] Network test failed:", e);
       return thunkApi.rejectWithValue(e);
     }
   }

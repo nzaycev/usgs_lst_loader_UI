@@ -21,7 +21,6 @@ import { MappingDialogWindowApp } from "./mapping-dialog-window";
 import { networkSettingsSlice } from "./network-settings/network-settings-state";
 import { NetworkSettingsWrapper } from "./network-settings/network-settings-wrapper";
 import { networkSlice } from "./network-test/network-state";
-import { testNetworkApi } from "./network-test/network-test-request";
 import { NetworkTestWrapper } from "./network-test/network-test-wrapper";
 import { SearchSceneDialogWindowApp } from "./search-scene-dialog-window";
 import { SettingsDialogWindowApp } from "./settings-dialog-window";
@@ -105,14 +104,13 @@ export const store = configureStore({
   middleware(gdf) {
     return gdf({
       serializableCheck: false,
-    }).concat([searchApi.middleware, testNetworkApi.middleware, logger]);
+    }).concat([searchApi.middleware, logger]);
   },
   reducer: {
     main: mainActions.reducer,
     network: networkSlice.reducer,
     [networkSettingsSlice.name]: networkSettingsSlice.reducer,
     [searchApi.reducerPath]: searchApi.reducer,
-    [testNetworkApi.reducerPath]: testNetworkApi.reducer,
     searchSceneDialog: searchSceneDialogSlice.reducer,
     downloadManager: downloadManagerSlice.reducer,
   },

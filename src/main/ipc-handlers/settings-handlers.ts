@@ -9,14 +9,11 @@ import type {
   CalculationSettings,
   INetworkSettings,
 } from "../../ui/network-settings/network-settings-state";
-import { FsWatcher } from "../fs-watcher";
 import { applyProxySettings } from "../proxy-settings";
 import { SettingsChema, store } from "../settings-store";
+import { usgsApiManager } from "../usgs-api";
 
-export function setupSettingsHandlers(
-  mainWindow: BrowserWindow,
-  fsWatcher?: FsWatcher
-) {
+export function setupSettingsHandlers(mainWindow: BrowserWindow) {
   // Window control handlers
   ipcMain.handle<Api>("windowMinimize", async () => {
     mainWindow.minimize();
@@ -106,26 +103,82 @@ export function setupSettingsHandlers(
   });
 
   ipcMain.handle<Api>("watchNetworkSettings", async () => {
-    const userSettingsPath = path.join(
-      app.getPath("userData"),
-      ".networkSettings"
-    );
-    if (fs.existsSync(userSettingsPath)) {
-      const settings = fs.readFileSync(userSettingsPath).toString();
-      return JSON.parse(settings);
+    // Read from store (same place as credentials)
+    let proxySettings = store.get("proxySettings") as
+      | INetworkSettings["proxy"]
+      | undefined;
+
+    // Migrate from old .networkSettings file if it exists and store is empty
+    if (!proxySettings) {
+      const userSettingsPath = path.join(
+        app.getPath("userData"),
+        ".networkSettings"
+      );
+      if (fs.existsSync(userSettingsPath)) {
+        try {
+          console.log(
+            "[Settings] Migrating network settings from .networkSettings file to store"
+          );
+          const fileContent = fs.readFileSync(userSettingsPath).toString();
+          const oldSettings = JSON.parse(fileContent) as INetworkSettings;
+          if (oldSettings.proxy) {
+            // Migrate to store
+            store.set("proxySettings", oldSettings.proxy);
+            proxySettings = oldSettings.proxy;
+            console.log("[Settings] Migration completed successfully");
+          }
+        } catch (e) {
+          console.error(
+            "[Settings] Error migrating network settings from file:",
+            e
+          );
+        }
+      }
     }
-    return {};
+
+    return {
+      proxy: proxySettings,
+    } as INetworkSettings;
   });
 
   ipcMain.handle<Api>(
     "saveNetworkSettings",
     async (_, settings: INetworkSettings) => {
       applyProxySettings(app, mainWindow, settings.proxy);
+
+      // Save to store (same place as credentials)
       if (settings.proxy) {
         store.set("proxySettings", settings.proxy);
       } else {
         store.delete("proxySettings");
       }
+
+      // Update proxy settings in usgs-api
+      usgsApiManager.updateProxySettings(settings.proxy);
+
+      // Re-authenticate if credentials exist (proxy change may require new session)
+      const creds = store.get("userdata") as
+        | SettingsChema["userdata"]
+        | undefined;
+      if (creds?.username && creds?.token) {
+        console.log(
+          "[Settings] Proxy settings changed, re-authenticating USGS API"
+        );
+        // Re-authenticate in background (don't block settings save)
+        usgsApiManager.login(creds).catch((e) => {
+          console.error(
+            "[Settings] Error re-authenticating after proxy change:",
+            e
+          );
+        });
+      }
+
+      // Notify all windows that network settings changed (to trigger network test)
+      BrowserWindow.getAllWindows().forEach((window) => {
+        if (!window.isDestroyed()) {
+          window.webContents.send("network-settings-changed");
+        }
+      });
     }
   );
 

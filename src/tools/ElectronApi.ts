@@ -153,6 +153,7 @@ export type RequestApi = {
     username?: string;
   }>;
   usgsLogout: () => Promise<void>;
+  testNetwork: () => Promise<{ success: boolean; status?: number }>;
 };
 
 export type ParsedPath = {
@@ -188,6 +189,7 @@ export type HookApi = {
     auth: "guest" | "authorizing" | "authorized";
     username?: string;
   }) => Promise<void>;
+  networkSettingsChanged: () => Promise<void>;
 };
 
 export type Api = GetApiType<RequestApi, HookApi>;

@@ -1,6 +1,4 @@
 import { app, BrowserWindow, session } from "electron";
-import fs from "fs";
-import path from "path";
 import type { INetworkSettings } from "../ui/network-settings/network-settings-state";
 import { FsWatcher } from "./fs-watcher";
 import { applyProxySettings } from "./proxy-settings";
@@ -42,17 +40,12 @@ export function createMainWindow(fsWatcher: FsWatcher): BrowserWindow {
   // and load the index.html of the app.
   mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
 
-  // Apply proxy settings if they exist
-  const userSettingsPath = path.join(
-    app.getPath("userData"),
-    ".networkSettings"
-  );
-
-  if (fs.existsSync(userSettingsPath)) {
-    const settings = store.get("proxySettings") as
-      | INetworkSettings["proxy"]
-      | undefined;
-    applyProxySettings(app, mainWindow, settings);
+  // Apply proxy settings if they exist in store
+  const proxySettings = store.get("proxySettings") as
+    | INetworkSettings["proxy"]
+    | undefined;
+  if (proxySettings) {
+    applyProxySettings(app, mainWindow, proxySettings);
   }
 
   return mainWindow;

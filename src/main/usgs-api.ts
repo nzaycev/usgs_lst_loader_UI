@@ -3,6 +3,7 @@ import { BrowserWindow } from "electron";
 import { EventEmitter } from "events";
 import { USGSLayerType } from "../actions/main-actions";
 import { ISearchScenesFilter } from "../tools/ElectronApi";
+import { configureAxiosProxy } from "./axios-proxy-config";
 import { SettingsChema, store } from "./settings-store";
 
 const USGS_API_URL = "https://m2m.cr.usgs.gov/api/api/json/stable";
@@ -37,6 +38,12 @@ class UsgsApiManager extends EventEmitter {
     this.axiosInstance = axios.create({
       baseURL: USGS_API_URL,
     });
+
+    // Configure proxy settings if available
+    const proxySettings = store.get("proxySettings") as
+      | SettingsChema["proxySettings"]
+      | undefined;
+    configureAxiosProxy(this.axiosInstance, proxySettings);
 
     // Setup request interceptor for logging
     this.axiosInstance.interceptors.request.use(
@@ -90,6 +97,13 @@ class UsgsApiManager extends EventEmitter {
     this.mainWindow = window;
   }
 
+  /**
+   * Updates proxy settings for axios instance
+   */
+  updateProxySettings(proxySettings?: SettingsChema["proxySettings"]): void {
+    configureAxiosProxy(this.axiosInstance, proxySettings);
+  }
+
   private setAuthStatus(status: AuthStatus, username?: string) {
     if (this.authStatus !== status || this.username !== username) {
       this.authStatus = status;
@@ -127,7 +141,9 @@ class UsgsApiManager extends EventEmitter {
       url: `${USGS_API_URL}/login-token`,
       username: creds.username,
     });
-    const resp = await axios.post(`${USGS_API_URL}/login-token`, creds);
+    // Use axiosInstance to ensure proxy settings are applied
+    // Note: axiosInstance already has baseURL set, so we use relative path
+    const resp = await this.axiosInstance.post("/login-token", creds);
     console.log("[USGS API] createSession: Received response", {
       status: resp.status,
       statusText: resp.statusText,
@@ -162,6 +178,11 @@ class UsgsApiManager extends EventEmitter {
 
     // Network status is handled by network-test system, not here
     if (!response) {
+      return Promise.reject(error);
+    }
+
+    // Ignore errors from logout requests - 403/401 on logout is normal if no active session
+    if (sourceConfig?.url?.includes("/logout")) {
       return Promise.reject(error);
     }
 
@@ -251,14 +272,96 @@ class UsgsApiManager extends EventEmitter {
     }
 
     console.log("[USGS API] Starting new login process");
-    // Start new login process
-    this.loginPromise = this.performLogin(creds).finally(() => {
+    // Start new login process with retry mechanism
+    this.loginPromise = this.performLoginWithRetry(creds).finally(() => {
       // Clear the promise when done (success or failure)
       console.log("[USGS API] Login process completed, clearing promise");
       this.loginPromise = null;
     });
 
     return this.loginPromise;
+  }
+
+  private async performLoginWithRetry(
+    creds: SettingsChema["userdata"],
+    maxRetries = 3,
+    initialDelay = 1000
+  ): Promise<{ data: any } | null> {
+    let lastError: Error | unknown = null;
+
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        if (attempt > 0) {
+          const delay = initialDelay * Math.pow(2, attempt - 1); // Exponential backoff
+          console.log(
+            `[USGS API] Retry attempt ${
+              attempt + 1
+            }/${maxRetries} after ${delay}ms delay`
+          );
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+
+        const result = await this.performLogin(creds);
+        if (result) {
+          if (attempt > 0) {
+            console.log(
+              `[USGS API] Login succeeded on retry attempt ${attempt + 1}`
+            );
+          }
+          return result;
+        }
+        // If result is null, user doesn't have permissions - don't retry
+        return null;
+      } catch (e) {
+        lastError = e;
+        const isAxiosError = e && typeof e === "object" && "response" in e;
+        const status = isAxiosError
+          ? (e as { response?: { status?: number } }).response?.status
+          : undefined;
+
+        console.error(
+          `[USGS API] Login attempt ${attempt + 1}/${maxRetries} failed:`,
+          {
+            error: e instanceof Error ? e.message : String(e),
+            status,
+          }
+        );
+
+        // Don't retry on certain errors (e.g., invalid credentials)
+        if (status === 401 || (status === 403 && isAxiosError)) {
+          const axiosError = e as { response?: { data?: unknown } };
+          // Check if it's a real auth error (not just API being unreliable)
+          if (axiosError.response?.data) {
+            const errorData = axiosError.response.data as {
+              errorCode?: string;
+              errorMessage?: string;
+            };
+            // If API returns specific error message, don't retry
+            if (errorData.errorMessage || errorData.errorCode) {
+              console.log(
+                "[USGS API] API returned specific error, not retrying"
+              );
+              break;
+            }
+          }
+        }
+
+        // If this was the last attempt, break
+        if (attempt === maxRetries - 1) {
+          break;
+        }
+      }
+    }
+
+    // All retries failed
+    console.error(
+      `[USGS API] All ${maxRetries} login attempts failed, giving up`
+    );
+    this.setAuthStatus("guest");
+    if (lastError instanceof Error) {
+      throw lastError;
+    }
+    throw new Error("Login failed after multiple retry attempts");
   }
 
   private async performLogin(
@@ -277,7 +380,9 @@ class UsgsApiManager extends EventEmitter {
           url: `${USGS_API_URL}/logout`,
           username: creds.username,
         });
-        const logoutResp = await axios.post(`${USGS_API_URL}/logout`, creds, {
+        // Use axiosInstance to ensure proxy settings are applied
+        // Note: axiosInstance already has baseURL set, so we use relative path
+        const logoutResp = await this.axiosInstance.post("/logout", creds, {
           timeout: 5000,
         });
         console.log("[USGS API] Logout successful", {
@@ -305,7 +410,9 @@ class UsgsApiManager extends EventEmitter {
       });
       let resp;
       try {
-        resp = await axios.post(`${USGS_API_URL}/login-token`, creds);
+        // Use axiosInstance to ensure proxy settings are applied
+        // Note: axiosInstance already has baseURL set, so we use relative path
+        resp = await this.axiosInstance.post("/login-token", creds);
         console.log("[USGS API] Login-token request successful", {
           status: resp.status,
           statusText: resp.statusText,
@@ -431,7 +538,8 @@ class UsgsApiManager extends EventEmitter {
           data: axiosError.response?.data,
         });
       }
-      this.setAuthStatus("guest");
+      // Don't set status to guest here - let retry mechanism handle it
+      // Status will be set to guest in performLoginWithRetry if all retries fail
       // Clear cache on error
       this.permissionsCache = null;
       throw e;

@@ -186,6 +186,12 @@ const api: Api = {
     async usgsLogout() {
       await ipcRenderer.invoke<Api>("usgsLogout");
     },
+    async testNetwork() {
+      return (await ipcRenderer.invoke<Api>("testNetwork")) as {
+        success: boolean;
+        status?: number;
+      };
+    },
   },
   on: {
     stateChange(listener) {
@@ -238,6 +244,12 @@ const api: Api = {
     usgsApiStatusChange(listener) {
       electronIpcRenderer.on("usgs-api-status-change", (event, data) => {
         listener(event, data);
+      });
+      return Promise.resolve();
+    },
+    networkSettingsChanged(listener) {
+      electronIpcRenderer.on("network-settings-changed", (event) => {
+        listener(event);
       });
       return Promise.resolve();
     },

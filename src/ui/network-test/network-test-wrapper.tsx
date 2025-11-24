@@ -47,6 +47,16 @@ export const NetworkTestWrapper: React.FC = ({ children }) => {
     dispatch(testNetwork());
   }, [dispatch]);
 
+  // Re-run network test when settings change
+  useEffect(() => {
+    const handleSettingsChange = () => {
+      console.log("[Network Test] Settings changed, re-running network test");
+      dispatch(testNetwork());
+    };
+
+    window.ElectronAPI.on.networkSettingsChanged(handleSettingsChange);
+  }, [dispatch]);
+
   useEffect(() => {
     if (networkState === NetworkState.Unstable) {
       setOpened(true);
