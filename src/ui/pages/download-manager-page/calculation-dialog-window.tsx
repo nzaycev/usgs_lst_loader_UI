@@ -35,6 +35,9 @@ const CalculationDialogWindow = () => {
   const [loading, setLoading] = useState(true);
   const [emissionError, setEmissionError] = useState<string>("");
   const [emissionInputValue, setEmissionInputValue] = useState<string>("");
+  const [saveDirectoryError, setSaveDirectoryError] = useState<string>("");
+  const [isRunning, setIsRunning] = useState(false);
+  const [displayId, setDisplayId] = useState<string | null>(null);
 
   useEffect(() => {
     const loadInitialState = async () => {
@@ -43,6 +46,11 @@ const CalculationDialogWindow = () => {
         if (hash.startsWith("#calculation-dialog:")) {
           const data = decodeURIComponent(hash.split(":")[1]);
           const dialogData = JSON.parse(data);
+
+          // Сохраняем displayId из dialogData
+          if (dialogData.displayId) {
+            setDisplayId(dialogData.displayId);
+          }
 
           if (dialogData.initialSettings) {
             setFormState(dialogData.initialSettings);
@@ -77,10 +85,46 @@ const CalculationDialogWindow = () => {
     window.ElectronAPI.invoke.sendCalculationDialogResult(null);
   };
 
-  const handleRun = () => {
-    if (formState && !emissionError) {
-      window.ElectronAPI.invoke.saveCalculationSettings({ args: formState });
-      window.ElectronAPI.invoke.sendCalculationDialogResult(formState);
+  const handleRun = async () => {
+    if (!formState || emissionError) {
+      return;
+    }
+
+    setIsRunning(true);
+    setSaveDirectoryError("");
+
+    try {
+      // Вызываем calculate - он проверит дубликаты и запустит процесс
+      try {
+        await window.ElectronAPI.invoke.calculate(displayId, formState);
+
+        // Если успешно (процесс запущен) - сохраняем настройки и закрываем диалог
+        // Отправляем null, чтобы download-manager-page не запускал calculateScene повторно
+        window.ElectronAPI.invoke.saveCalculationSettings({
+          args: formState,
+        });
+        window.ElectronAPI.invoke.sendCalculationDialogResult(null);
+      } catch (error: any) {
+        // Если ошибка связана с дубликатом - показываем в поле
+        const errorMessage = error?.message || String(error);
+
+        if (
+          errorMessage.includes("already exists") ||
+          errorMessage.includes("duplicate")
+        ) {
+          setSaveDirectoryError(errorMessage);
+          // НЕ закрываем диалог - не вызываем sendCalculationDialogResult
+        } else {
+          // Другие ошибки - показываем alert и закрываем диалог
+          alert(`Error: ${errorMessage}`);
+          window.ElectronAPI.invoke.sendCalculationDialogResult(null);
+        }
+      }
+    } catch (error) {
+      console.error("[handleRun] Unexpected error:", error);
+      alert(`Unexpected error: ${error}`);
+    } finally {
+      setIsRunning(false);
     }
   };
 
@@ -389,29 +433,39 @@ const CalculationDialogWindow = () => {
           </FormControl>
 
           {/* Save directory */}
-          <FormControl>
+          <FormControl isInvalid={!!saveDirectoryError}>
             <FormLabel color="gray.200">Save directory</FormLabel>
             <Input
               placeholder="./out_{date}-{args}"
               value={formState.saveDirectory || ""}
               size="sm"
               bg="gray.800"
-              borderColor="gray.700"
+              borderColor={saveDirectoryError ? "red.500" : "gray.700"}
               color="gray.200"
               borderRadius="md"
               fontWeight="normal"
-              _hover={{ borderColor: "gray.600" }}
-              _focus={{
-                borderColor: "blue.500",
-                boxShadow: "0 0 0 1px #3182ce",
+              _hover={{
+                borderColor: saveDirectoryError ? "red.400" : "gray.600",
               }}
-              onChange={(e) =>
+              _focus={{
+                borderColor: saveDirectoryError ? "red.500" : "blue.500",
+                boxShadow: saveDirectoryError
+                  ? "0 0 0 1px #fc8181"
+                  : "0 0 0 1px #3182ce",
+              }}
+              onChange={(e) => {
+                setSaveDirectoryError(""); // Очищаем ошибку при изменении
                 setFormState((prev) => ({
                   ...prev!,
                   saveDirectory: e.target.value || undefined,
-                }))
-              }
+                }));
+              }}
             />
+            {saveDirectoryError && (
+              <FormErrorMessage color="red.400">
+                {saveDirectoryError}
+              </FormErrorMessage>
+            )}
           </FormControl>
 
           {/* Layer name pattern */}
@@ -458,7 +512,9 @@ const CalculationDialogWindow = () => {
           bg="green.600"
           color="white"
           _hover={{ bg: "green.700" }}
-          isDisabled={!!emissionError}
+          isDisabled={!!emissionError || isRunning}
+          isLoading={isRunning}
+          loadingText="Running..."
         >
           Run
         </Button>

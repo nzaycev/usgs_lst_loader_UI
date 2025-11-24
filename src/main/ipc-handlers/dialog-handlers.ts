@@ -347,6 +347,7 @@ export function setupDialogHandlers(
       _,
       payload: {
         initialSettings?: import("../../actions/main-actions").RunArgs;
+        displayId?: string;
       }
     ): Promise<import("../../actions/main-actions").RunArgs | null> => {
       return new Promise((resolve) => {
@@ -409,6 +410,7 @@ export function setupDialogHandlers(
 
         const dialogData = {
           initialSettings: payload.initialSettings,
+          displayId: (payload as any).displayId || null,
         };
         const data = encodeURIComponent(JSON.stringify(dialogData));
         dialogWindow.loadURL(

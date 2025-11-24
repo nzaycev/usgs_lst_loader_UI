@@ -111,18 +111,63 @@ export const addSceneToRepo = createAsyncThunk<
   { entityId: string; displayId: DisplayId }
 >("scenes/download", async (payload, thunkApi) => {
   try {
-    const ds = await window.ElectronAPI.invoke.usgsGetDownloadDS(payload.entityId);
-    console.log({ ds });
+    const ds = await window.ElectronAPI.invoke.usgsGetDownloadDS(
+      payload.entityId
+    );
+    console.log("[addSceneToRepo] Got download URLs:", { ds });
+
+    // Получаем текущий state сцены из Redux store
+    const state = thunkApi.getState() as RootState;
+    const currentScene = state.main.scenes[payload.displayId];
+
+    // Определяем, какие файлы нужно догрузить
+    const filesToDownload = ds.filter((item) => {
+      if (!currentScene) {
+        // Если сцены нет в state, загружаем все файлы
+        return true;
+      }
+
+      const fileState = currentScene.donwloadedFiles[item.layerName];
+      // Загружаем файл, если:
+      // 1. Файла нет в state
+      // 2. Прогресс не определен
+      // 3. Прогресс меньше 1 (файл не полностью загружен)
+      const needsDownload =
+        !fileState ||
+        fileState.progress === undefined ||
+        fileState.progress < 1;
+
+      if (!needsDownload) {
+        console.log(
+          `[addSceneToRepo] Skipping ${item.layerName} - already downloaded (progress: ${fileState.progress})`
+        );
+      }
+
+      return needsDownload;
+    });
+
+    console.log(
+      `[addSceneToRepo] Files to download: ${filesToDownload.length} of ${ds.length}`
+    );
+
+    // Обновляем repo с новыми URL-ами (сохраняя существующий прогресс)
     window.ElectronAPI.invoke.addRepo({ ds, ...payload });
-    ds.forEach(({ url }) => {
+
+    // Запускаем скачивание только для недостающих файлов
+    filesToDownload.forEach(({ url, layerName }) => {
+      console.log(`[addSceneToRepo] Starting download for ${layerName}`);
       const anchor = document.createElement("a");
       anchor.href = url;
       anchor.target = "_blank";
       anchor.download = "";
       anchor.click();
     });
+
+    if (filesToDownload.length === 0) {
+      console.log("[addSceneToRepo] All files already downloaded");
+    }
   } catch (e) {
-    console.error(e);
+    console.error("[addSceneToRepo] Error:", e);
     return thunkApi.rejectWithValue(e);
   }
 });

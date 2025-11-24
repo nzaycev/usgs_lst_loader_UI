@@ -201,8 +201,24 @@ export class FsWatcher {
       }
 
       // Синхронизируем legacy поле calculation с массивом calculations
+      // Нормализуем resultsPath в calculations, чтобы он всегда был абсолютным
       let calculations = indexState?.calculations
-        ? [...indexState.calculations]
+        ? indexState.calculations.map((calc) => {
+            // Нормализуем resultsPath: если относительный, делаем абсолютным относительно scenePath
+            if (calc.resultsPath) {
+              // Убираем ./ или .\ из начала, если есть
+              const cleanPath = calc.resultsPath.replace(/^\.[/\\]/, "");
+              const normalizedResultsPath = path.isAbsolute(cleanPath)
+                ? cleanPath
+                : path.resolve(item, cleanPath);
+
+              return {
+                ...calc,
+                resultsPath: normalizedResultsPath,
+              };
+            }
+            return calc;
+          })
         : [];
       // Проверяем наличие активного расчета и legacy поля calculation
       // Важно: проверяем не только undefined, но и что значение >= 0 (может быть 0)

@@ -4,7 +4,6 @@ import React, { useEffect } from "react";
 import {
   addExternalFolder,
   addSceneToRepo,
-  calculateScene,
   mainActions,
   watchScenesState,
 } from "../../../actions/main-actions";
@@ -144,28 +143,15 @@ export const DownloadManagerPage: React.FC = () => {
 
   const openCalculationDialog = async (displayId: string) => {
     try {
-      const result = await window.ElectronAPI.invoke.openCalculationDialog({});
-      if (result) {
-        const action = await dispatch(
-          calculateScene({ displayId, args: result })
+      const result = await window.ElectronAPI.invoke.openCalculationDialog({
+        displayId,
+      });
+      // Если result === null, это означает, что расчет уже был запущен в диалоге
+      if (result === null) {
+        console.log(
+          "[openCalculationDialog] Calculation already started in dialog, skipping calculateScene"
         );
-        if (isFulfilled(action)) {
-          toast({
-            title: "The scene calculation was started",
-            position: "bottom-left",
-            description: `If the process fall, run it manually by [> ${action.payload}]`,
-            duration: 5000,
-            isClosable: true,
-          });
-        } else {
-          toast({
-            title: "Error starting calculation",
-            description: "Failed to start the calculation process",
-            status: "error",
-            duration: 3000,
-            isClosable: true,
-          });
-        }
+        return;
       }
     } catch (error) {
       console.error("Error in openCalculationDialog:", error);

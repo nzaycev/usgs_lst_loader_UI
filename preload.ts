@@ -13,6 +13,9 @@ const api: Api = {
     openExplorer: async (str) => {
       await ipcRenderer.invoke<Api>("openExplorer", str);
     },
+    openDirectory: async (path) => {
+      await ipcRenderer.invoke<Api>("openDirectory", path);
+    },
     async watch() {
       return (await ipcRenderer.invoke<Api>("watch")) as Partial<
         Record<DisplayId, ISceneState>
@@ -27,6 +30,13 @@ const api: Api = {
         sceneId,
         args
       )) as string;
+    },
+    async deleteCalculation(sceneId, calculationIndex) {
+      await ipcRenderer.invoke<Api>(
+        "deleteCalculation",
+        sceneId,
+        calculationIndex
+      );
     },
     async download(...args) {
       return (await ipcRenderer.invoke<Api>("download", ...args)) as string;

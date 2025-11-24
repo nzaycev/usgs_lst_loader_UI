@@ -1,4 +1,4 @@
-import { isFulfilled } from "@reduxjs/toolkit";
+import { useToast } from "@chakra-ui/react";
 import {
   ChevronDown,
   ChevronUp,
@@ -10,27 +10,27 @@ import {
 } from "lucide-react";
 import React from "react";
 import Highlighter from "react-highlight-words";
-import { useAppDispatch, useAppSelector } from "../../app";
 import {
   addSceneToRepo,
-  calculateScene,
+  DisplayId,
+  ISceneState,
   mainActions,
+  watchScenesState,
 } from "../../../actions/main-actions";
 import { useLazyGetSceneByIdQuery } from "../../../actions/searchApi";
+import { useAppDispatch, useAppSelector } from "../../app";
 import { downloadManagerActions } from "../../pages/download-manager-page/download-manager-slice";
-import { useToast } from "@chakra-ui/react";
-import { ISceneState, DisplayId } from "../../../actions/main-actions";
+import { SceneRowExpanded } from "./scene-row-expanded";
 import {
   formatBytes,
+  getAggregatedProgress,
   getDownloadedSize,
   getOutputFilesSize,
-  getAggregatedProgress,
-  parseDisplayId,
   getSceneStatus,
-  statusColors,
   getTrProgressStyle,
+  parseDisplayId,
+  statusColors,
 } from "./utils";
-import { SceneRowExpanded } from "./scene-row-expanded";
 
 interface SceneRowProps {
   displayId: DisplayId;
@@ -72,8 +72,8 @@ export const SceneRow: React.FC<SceneRowProps> = ({
   // Расчет прогрессов
   const downloadProgress = getAggregatedProgress(state);
   const calculationProgress =
-    state?.calculations?.find((calc) => calc.status === "running")
-      ?.progress || 0;
+    state?.calculations?.find((calc) => calc.status === "running")?.progress ||
+    0;
 
   // Определение активных процессов
   const isDownloading = status === "downloading";
@@ -185,11 +185,7 @@ export const SceneRow: React.FC<SceneRowProps> = ({
           </div>
         </td>
         <td className="p-3">
-          <input
-            type="checkbox"
-            checked={isSelected}
-            onChange={onSelect}
-          />
+          <input type="checkbox" checked={isSelected} onChange={onSelect} />
         </td>
         <td className="p-3">
           {state?.isRepo === true ? (
@@ -279,15 +275,18 @@ export const SceneRow: React.FC<SceneRowProps> = ({
                 <Download size={16} />
               </button>
             ) : null}
-            {status !== "new" && status !== "downloading cancelled" && (
-              <button
-                onClick={() => onStartCalculation({ displayId })}
-                className="p-1.5 hover:bg-gray-600 rounded transition-colors"
-                title="Launch"
-              >
-                <Play size={16} />
-              </button>
-            )}
+            {status !== "new" &&
+              status !== "downloading" &&
+              status !== "calculating" &&
+              status !== "downloading cancelled" && (
+                <button
+                  onClick={() => onStartCalculation({ displayId })}
+                  className="p-1.5 hover:bg-gray-600 rounded transition-colors"
+                  title="Launch"
+                >
+                  <Play size={16} />
+                </button>
+              )}
             <button
               className="p-1.5 hover:bg-red-900 text-red-400 rounded transition-colors"
               title="Delete"
@@ -303,9 +302,12 @@ export const SceneRow: React.FC<SceneRowProps> = ({
           state={state}
           isFilesExpanded={isFilesExpanded}
           onToggleFiles={handleToggleFilesExpand}
+          onCalculationDeleted={() => {
+            // Обновляем состояние после удаления
+            dispatch(watchScenesState());
+          }}
         />
       )}
     </>
   );
 };
-

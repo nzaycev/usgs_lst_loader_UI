@@ -1,16 +1,12 @@
-import {
-  ipcMain as electronIpcMain,
-  dialog,
-  BrowserWindow,
-  app,
-} from "electron";
-import { ipcMain } from "electron-typescript-ipc";
-import type { Api } from "../../tools/ElectronApi";
-import type { USGSLayerType } from "../../actions/main-actions";
-import { FsWatcher } from "../fs-watcher";
 import { spawn } from "child_process";
+import { BrowserWindow, dialog, ipcMain as electronIpcMain } from "electron";
+import { ipcMain } from "electron-typescript-ipc";
 import fs from "fs";
 import path from "path";
+import type { USGSLayerType } from "../../actions/main-actions";
+import type { Api } from "../../tools/ElectronApi";
+import { FsWatcher } from "../fs-watcher";
+import { scenePathResolver } from "../scene-path-resolver";
 
 declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
 declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
@@ -19,10 +15,54 @@ export function setupFileHandlers(
   mainWindow: BrowserWindow,
   fsWatcher: FsWatcher
 ) {
-  ipcMain.handle<Api>("openExplorer", async (_, path_: string) => {
-    const appdataPath = path.join(app.getPath("userData"), "localStorage");
-    spawn(`explorer`, [`/select,"${path.join(appdataPath, path_)}"`], {
-      windowsVerbatimArguments: true,
+  ipcMain.handle<Api>("openExplorer", async (_, displayId: string) => {
+    // Используем утилиту для поиска пути к сцене
+    const result = scenePathResolver.findScenePath(displayId, fsWatcher);
+
+    if (!result) {
+      console.error("[openExplorer] Scene not found:", displayId);
+      return;
+    }
+
+    // Нормализуем путь для Windows (используем обратные слеши)
+    const normalizedPath = path.normalize(result.scenePath);
+
+    console.log("[openExplorer] Opening directory:", {
+      displayId,
+      scenePath: normalizedPath,
+      isRepo: result.isRepo,
+    });
+
+    // Проверяем, что директория существует
+    if (!fs.existsSync(normalizedPath)) {
+      console.error("[openExplorer] Directory does not exist:", normalizedPath);
+      return;
+    }
+
+    // Открываем саму директорию, а не родительскую с выделением
+    spawn(`explorer`, [normalizedPath], {
+      windowsVerbatimArguments: false,
+    });
+  });
+
+  ipcMain.handle<Api>("openDirectory", async (_, directoryPath: string) => {
+    // Нормализуем путь для Windows (используем обратные слеши)
+    const normalizedPath = path.normalize(directoryPath);
+
+    console.log("[openDirectory] Opening directory:", normalizedPath);
+
+    // Проверяем, что директория существует
+    if (!fs.existsSync(normalizedPath)) {
+      console.error(
+        "[openDirectory] Directory does not exist:",
+        normalizedPath
+      );
+      return;
+    }
+
+    // Открываем саму директорию
+    spawn(`explorer`, [normalizedPath], {
+      windowsVerbatimArguments: false,
     });
   });
 
@@ -254,7 +294,7 @@ export function setupFileHandlers(
         dialogWindow.show();
 
         // добавляем горячую клавишу F12 для переключения DevTools
-        dialogWindow.webContents.on("before-input-event", (event, input) => {
+        dialogWindow.webContents.on("before-input-event", (_event, input) => {
           if (
             input.key === "F12" ||
             (input.control && input.shift && input.key === "I")

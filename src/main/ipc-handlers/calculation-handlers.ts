@@ -1,11 +1,11 @@
 import { spawn, type ChildProcess } from "child_process";
-import { app } from "electron";
 import { ipcMain } from "electron-typescript-ipc";
 import fs from "fs";
 import { isNumber } from "lodash";
 import path from "path";
 import type { ISceneState, RunArgs } from "../../actions/main-actions";
 import type { Api } from "../../tools/ElectronApi";
+import { scenePathResolver } from "../scene-path-resolver";
 
 export function setupCalculationHandlers() {
   ipcMain.handle<Api>(
@@ -15,12 +15,120 @@ export function setupCalculationHandlers() {
         process.env.APP_DEV ? process.cwd() : process.resourcesPath,
         "public"
       );
-      const appdataPath = path.join(app.getPath("userData"), "localStorage");
-      const scenePath = path.join(appdataPath, sceneId);
       const calculationProcessPath = path.join(
         publicPath,
         "tasks/calculation.exe"
       );
+
+      // Используем утилиту для поиска пути к сцене
+      const result = scenePathResolver.findScenePath(sceneId);
+
+      if (!result) {
+        throw new Error(`Scene index not found: ${sceneId}`);
+      }
+
+      const { scenePath, indexPath, indexState } = result;
+
+      console.log("[calculate] Using scene path:", {
+        sceneId,
+        scenePath,
+        isRepo: result.isRepo,
+      });
+
+      // Функция генерации имени папки результатов (как в Python скрипте)
+      const generateOutputDirectoryName = (saveDirectory?: string): string => {
+        if (saveDirectory) {
+          // Если задано кастомное имя, проверяем, содержит ли оно паттерны
+          // Паттерны: {date} и {args}
+          if (
+            saveDirectory.includes("{date}") ||
+            saveDirectory.includes("{args}")
+          ) {
+            // Генерируем значения для подстановки
+            const flags: string[] = [];
+            if (args.useQAMask) {
+              flags.push("withQAMask");
+            }
+            if (isNumber(args.emission)) {
+              flags.push(`emission-${args.emission}`);
+            }
+            if (args.emissionCalcMethod) {
+              flags.push(`emissionCalcMethod-${args.emissionCalcMethod}`);
+            }
+
+            // Формат даты как в Python: %Y-%m-%d_%H-%M__%S
+            const now = new Date();
+            const dateStr = `${now.getFullYear()}-${String(
+              now.getMonth() + 1
+            ).padStart(2, "0")}-${String(now.getDate()).padStart(
+              2,
+              "0"
+            )}_${String(now.getHours()).padStart(2, "0")}-${String(
+              now.getMinutes()
+            ).padStart(2, "0")}__${String(now.getSeconds()).padStart(2, "0")}`;
+
+            const argsStr = flags.join("_");
+
+            // Подставляем значения в паттерн
+            return saveDirectory
+              .replace(/{date}/g, dateStr)
+              .replace(/{args}/g, argsStr);
+          }
+          // Если паттернов нет, используем как есть
+          return saveDirectory;
+        }
+
+        // Генерируем имя как в Python: out_{date}-{args}
+        const flags: string[] = [];
+        if (args.useQAMask) {
+          flags.push("withQAMask");
+        }
+        if (isNumber(args.emission)) {
+          flags.push(`emission-${args.emission}`);
+        }
+        if (args.emissionCalcMethod) {
+          flags.push(`emissionCalcMethod-${args.emissionCalcMethod}`);
+        }
+
+        // Формат даты как в Python: %Y-%m-%d_%H-%M__%S
+        const now = new Date();
+        const dateStr = `${now.getFullYear()}-${String(
+          now.getMonth() + 1
+        ).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}_${String(
+          now.getHours()
+        ).padStart(2, "0")}-${String(now.getMinutes()).padStart(
+          2,
+          "0"
+        )}__${String(now.getSeconds()).padStart(2, "0")}`;
+
+        const argsStr = flags.length > 0 ? `-${flags.join("_")}` : "";
+        return `out_${dateStr}${argsStr}`;
+      };
+
+      // Проверяем на дубликаты имен перед запуском
+      const outputDirName = generateOutputDirectoryName(args.saveDirectory);
+      const absoluteResultsPath = path.resolve(scenePath, outputDirName);
+
+      // Проверяем существующие расчеты на дубликаты
+      const existingCalculations = indexState.calculations || [];
+      const duplicateCalc = existingCalculations.find((calc) => {
+        if (!calc.resultsPath) return false;
+        // Нормализуем путь для сравнения
+        const calcPath = path.isAbsolute(calc.resultsPath)
+          ? calc.resultsPath
+          : path.resolve(scenePath, calc.resultsPath.replace(/^\.[/\\]/, ""));
+        return path.normalize(calcPath) === path.normalize(absoluteResultsPath);
+      });
+
+      if (duplicateCalc) {
+        const errorMessage = `Calculation with output directory "${outputDirName}" already exists. Please change the output directory name.`;
+        console.error("[calculate] Duplicate calculation detected:", {
+          outputDirName,
+          absoluteResultsPath,
+          existingCalc: duplicateCalc.resultsPath,
+        });
+        throw new Error(errorMessage);
+      }
 
       // Формируем аргументы без кавычек (spawn сам обрабатывает аргументы)
       const runArgs: string[] = ["--path", scenePath];
@@ -32,33 +140,22 @@ export function setupCalculationHandlers() {
       Object.entries(args.outLayers).forEach(([outLayerKey, required]) => {
         if (required) runArgs.push(`--save${outLayerKey}`);
       });
-      if (args.saveDirectory) runArgs.push("--out", args.saveDirectory);
+      // Всегда передаем явное имя папки, чтобы Python не генерировал свое
+      runArgs.push("--out", outputDirName);
       if (args.layerNamePattern)
         runArgs.push("--layerPattern", args.layerNamePattern);
 
-      // Сохраняем информацию о расчете
-      const indexPath = path.join(scenePath, "index.json");
-      let indexState: ISceneState | null = null;
-
-      if (fs.existsSync(indexPath)) {
-        indexState = JSON.parse(fs.readFileSync(indexPath).toString());
-      }
-
-      if (!indexState) {
-        throw new Error(`Scene index not found: ${sceneId}`);
-      }
-
-      // Определяем путь к результатам расчетов
-      const defaultOutDir = `./out_${new Date()
-        .toISOString()
-        .replace(/[:.]/g, "-")}`;
-      const resultsPath = args.saveDirectory
-        ? path.resolve(scenePath, args.saveDirectory)
-        : path.resolve(scenePath, defaultOutDir);
+      console.log("[calculate] Results path:", {
+        scenePath,
+        saveDirectory: args.saveDirectory,
+        outputDirName,
+        absoluteResultsPath,
+        isAbsolute: path.isAbsolute(absoluteResultsPath),
+      });
 
       // Создаем запись о новом расчете
       const calculationResult = {
-        resultsPath,
+        resultsPath: absoluteResultsPath,
         parameters: {
           useQAMask: args.useQAMask,
           emission: args.emission,
@@ -201,7 +298,31 @@ exit /b %errorlevel%`;
       indexState.calculated = false;
 
       // Сохраняем обновленное состояние
+      // Убеждаемся, что resultsPath абсолютный перед сохранением
+      const lastCalc =
+        indexState.calculations[indexState.calculations.length - 1];
+      if (lastCalc.resultsPath && !path.isAbsolute(lastCalc.resultsPath)) {
+        lastCalc.resultsPath = path.resolve(
+          scenePath,
+          lastCalc.resultsPath.replace(/^\.[/\\]/, "")
+        );
+        console.log("[calculate] Normalized resultsPath before saving:", {
+          original:
+            indexState.calculations[indexState.calculations.length - 1]
+              .resultsPath,
+          normalized: lastCalc.resultsPath,
+        });
+      }
       fs.writeFileSync(indexPath, JSON.stringify(indexState, null, 2));
+      console.log("[calculate] Saved index.json with calculations:", {
+        calculationsCount: indexState.calculations.length,
+        lastCalcResultsPath: lastCalc.resultsPath,
+        isAbsolute: path.isAbsolute(lastCalc.resultsPath),
+      });
+
+      // Возвращаем успешный результат только после того, как процесс запущен
+      // Это позволяет диалогу дождаться подтверждения начала расчета
+      const resultMessage = `"${calculationProcessPath}" ${runArgs.join(" ")}`;
 
       calculationProcess.on("exit", (code, signal) => {
         console.log(
@@ -223,6 +344,19 @@ exit /b %errorlevel%`;
             fs.readFileSync(indexPath).toString()
           );
 
+          console.log(
+            "[calculate] Reading updated state for output size calculation:",
+            {
+              scenePath,
+              indexPath,
+              calculationsCount: updatedState.calculations?.length || 0,
+              lastCalcResultsPath:
+                updatedState.calculations?.[
+                  updatedState.calculations.length - 1
+                ]?.resultsPath,
+            }
+          );
+
           // Находим последний расчет и обновляем его статус
           if (
             updatedState.calculations &&
@@ -240,24 +374,113 @@ exit /b %errorlevel%`;
                 // Рассчитываем размер выходных файлов
                 try {
                   let totalSize = 0;
-                  if (fs.existsSync(lastCalc.resultsPath)) {
-                    const files = fs.readdirSync(lastCalc.resultsPath);
+                  // Нормализуем путь к результатам
+                  // resultsPath может быть относительным (например, "out_2025-01-17T10-30-00-000Z")
+                  // или абсолютным, или начинаться с "./"
+                  let normalizedResultsPath: string;
+
+                  if (path.isAbsolute(lastCalc.resultsPath)) {
+                    // Уже абсолютный путь
+                    normalizedResultsPath = lastCalc.resultsPath;
+                  } else {
+                    // Относительный путь - нормализуем относительно scenePath
+                    const cleanPath = lastCalc.resultsPath.replace(
+                      /^\.[/\\]/,
+                      ""
+                    );
+                    normalizedResultsPath = path.resolve(scenePath, cleanPath);
+                  }
+
+                  console.log(
+                    "[calculate] Normalizing results path for output size:",
+                    {
+                      original: lastCalc.resultsPath,
+                      scenePath,
+                      normalizedResultsPath,
+                      isAbsolute: path.isAbsolute(normalizedResultsPath),
+                      exists: fs.existsSync(normalizedResultsPath),
+                    }
+                  );
+
+                  // Обновляем resultsPath на абсолютный путь для будущих использований
+                  lastCalc.resultsPath = normalizedResultsPath;
+
+                  if (fs.existsSync(normalizedResultsPath)) {
+                    const files = fs.readdirSync(normalizedResultsPath);
+                    console.log("[calculate] Files in results directory:", {
+                      path: normalizedResultsPath,
+                      fileCount: files.length,
+                      files: files.slice(0, 10), // Первые 10 файлов для отладки
+                    });
+
                     for (const file of files) {
-                      const filePath = path.join(lastCalc.resultsPath, file);
+                      const filePath = path.join(normalizedResultsPath, file);
                       try {
                         const stats = fs.statSync(filePath);
                         if (stats.isFile()) {
                           totalSize += stats.size;
                         }
                       } catch (e) {
+                        console.warn(
+                          "[calculate] Error reading file:",
+                          filePath,
+                          e
+                        );
                         // Игнорируем ошибки доступа к файлам
+                      }
+                    }
+                  } else {
+                    console.warn(
+                      "[calculate] Results directory does not exist:",
+                      normalizedResultsPath
+                    );
+                    // Пробуем найти директорию, проверяя возможные варианты
+                    const possiblePaths = [
+                      path.resolve(scenePath, lastCalc.resultsPath),
+                      path.resolve(scenePath, `./${lastCalc.resultsPath}`),
+                      lastCalc.resultsPath,
+                    ];
+                    for (const possiblePath of possiblePaths) {
+                      if (fs.existsSync(possiblePath)) {
+                        console.log(
+                          "[calculate] Found results directory at alternative path:",
+                          possiblePath
+                        );
+                        normalizedResultsPath = possiblePath;
+                        lastCalc.resultsPath = normalizedResultsPath;
+                        // Пересчитываем размер
+                        const files = fs.readdirSync(normalizedResultsPath);
+                        for (const file of files) {
+                          const filePath = path.join(
+                            normalizedResultsPath,
+                            file
+                          );
+                          try {
+                            const stats = fs.statSync(filePath);
+                            if (stats.isFile()) {
+                              totalSize += stats.size;
+                            }
+                          } catch (e) {
+                            // Игнорируем ошибки
+                          }
+                        }
+                        break;
                       }
                     }
                   }
                   lastCalc.outputSize = totalSize;
+                  console.log("[calculate] Output size calculated:", {
+                    resultsPath: normalizedResultsPath,
+                    outputSize: totalSize,
+                    outputSizeMB: (totalSize / 1024 / 1024).toFixed(2),
+                    exists: fs.existsSync(normalizedResultsPath),
+                  });
                 } catch (e) {
                   // Игнорируем ошибки расчета размера
-                  console.error("Error calculating output size:", e);
+                  console.error(
+                    "[calculate] Error calculating output size:",
+                    e
+                  );
                 }
               } else {
                 lastCalc.status = "error";
@@ -357,7 +580,66 @@ exit /b %errorlevel%`;
         }
       });
 
-      return `"${calculationProcessPath}" ${runArgs.join(" ")}`;
+      return resultMessage;
+    }
+  );
+
+  ipcMain.handle<Api>(
+    "deleteCalculation",
+    async (_, sceneId: string, calculationIndex: number) => {
+      // Используем утилиту для поиска пути к сцене
+      const result = scenePathResolver.findScenePath(sceneId);
+
+      if (!result) {
+        throw new Error(`Scene index not found: ${sceneId}`);
+      }
+
+      const { scenePath, indexPath, indexState } = result;
+
+      // Проверяем, что индекс валидный
+      if (
+        !indexState.calculations ||
+        calculationIndex < 0 ||
+        calculationIndex >= indexState.calculations.length
+      ) {
+        throw new Error(`Invalid calculation index: ${calculationIndex}`);
+      }
+
+      const calc = indexState.calculations[calculationIndex];
+
+      // Удаляем директорию с результатами, если она существует
+      if (calc.resultsPath) {
+        // Нормализуем путь
+        const normalizedPath = path.isAbsolute(calc.resultsPath)
+          ? calc.resultsPath
+          : path.resolve(scenePath, calc.resultsPath.replace(/^\.[/\\]/, ""));
+
+        if (fs.existsSync(normalizedPath)) {
+          try {
+            // Рекурсивно удаляем директорию
+            fs.rmSync(normalizedPath, { recursive: true, force: true });
+            console.log(
+              "[deleteCalculation] Deleted results directory:",
+              normalizedPath
+            );
+          } catch (e) {
+            console.error("[deleteCalculation] Error deleting directory:", e);
+            throw new Error(`Failed to delete results directory: ${e}`);
+          }
+        }
+      }
+
+      // Удаляем запись из массива calculations
+      indexState.calculations.splice(calculationIndex, 1);
+
+      // Сохраняем обновленное состояние
+      fs.writeFileSync(indexPath, JSON.stringify(indexState, null, 2));
+
+      console.log("[deleteCalculation] Deleted calculation:", {
+        sceneId,
+        calculationIndex,
+        resultsPath: calc.resultsPath,
+      });
     }
   );
 }

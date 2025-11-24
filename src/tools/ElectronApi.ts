@@ -39,9 +39,14 @@ export interface DownloadProps {
 
 export type RequestApi = {
   openExplorer: (str: string) => Promise<void>;
+  openDirectory: (path: string) => Promise<void>;
   watch: () => Promise<Partial<Record<DisplayId, ISceneState>>>;
   checkLastDate: () => Promise<string>;
   calculate: (sceneId: string, args: RunArgs) => Promise<string>;
+  deleteCalculation: (
+    sceneId: string,
+    calculationIndex: number
+  ) => Promise<void>;
   addRepo: (arg: DownloadProps) => Promise<void>;
   getStoreValue: (key: keyof SettingsChema | string) => Promise<unknown>;
   setStoreValue: (
@@ -120,6 +125,7 @@ export type RequestApi = {
   sendSettingsDialogResult: (result: boolean | null) => Promise<void>;
   openCalculationDialog: (payload: {
     initialSettings?: RunArgs;
+    displayId?: string;
   }) => Promise<RunArgs | null>;
   sendCalculationDialogResult: (result: RunArgs | null) => Promise<void>;
   windowMinimize: () => Promise<void>;

@@ -38,12 +38,47 @@ class UsgsApiManager extends EventEmitter {
       baseURL: USGS_API_URL,
     });
 
-    // Setup interceptor for error handling
+    // Setup request interceptor for logging
+    this.axiosInstance.interceptors.request.use(
+      (config) => {
+        console.log("[USGS API] Request:", {
+          method: config.method?.toUpperCase(),
+          url: config.url,
+          baseURL: config.baseURL,
+          fullUrl: `${config.baseURL}${config.url}`,
+          hasData: !!config.data,
+          dataSize: config.data ? JSON.stringify(config.data).length : 0,
+        });
+        return config;
+      },
+      (error) => {
+        console.error("[USGS API] Request error:", error);
+        return Promise.reject(error);
+      }
+    );
+
+    // Setup response interceptor for logging and error handling
     this.axiosInstance.interceptors.response.use(
       (response) => {
+        console.log("[USGS API] Response:", {
+          method: response.config.method?.toUpperCase(),
+          url: response.config.url,
+          status: response.status,
+          statusText: response.statusText,
+          hasData: !!response.data,
+          dataSize: response.data ? JSON.stringify(response.data).length : 0,
+        });
         return response;
       },
       (error: AxiosError) => {
+        console.error("[USGS API] Response error:", {
+          method: error.config?.method?.toUpperCase(),
+          url: error.config?.url,
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          message: error.message,
+          hasResponseData: !!error.response?.data,
+        });
         return this.handleError(error);
       }
     );
@@ -88,7 +123,16 @@ class UsgsApiManager extends EventEmitter {
   // Connection status is handled by network-test system, not here
 
   private async createSession(creds: SettingsChema["userdata"]) {
+    console.log("[USGS API] createSession: Sending login-token request", {
+      url: `${USGS_API_URL}/login-token`,
+      username: creds.username,
+    });
     const resp = await axios.post(`${USGS_API_URL}/login-token`, creds);
+    console.log("[USGS API] createSession: Received response", {
+      status: resp.status,
+      statusText: resp.statusText,
+      hasCookie: !!resp.headers["set-cookie"],
+    });
     const { data } = resp.data;
     const [cookie] = resp.headers["set-cookie"] || [];
 
@@ -165,6 +209,11 @@ class UsgsApiManager extends EventEmitter {
         }
         this.addRequestToQueue((cookie: string, xAuth: string) => {
           if (sourceConfig) {
+            console.log("[USGS API] Retrying queued request with new session", {
+              method: sourceConfig.method?.toUpperCase(),
+              url: sourceConfig.url,
+              baseURL: sourceConfig.baseURL,
+            });
             sourceConfig.headers = sourceConfig.headers || {};
             sourceConfig.headers.Cookie = cookie;
             sourceConfig.headers["X-Auth-Token"] = xAuth;
@@ -224,20 +273,56 @@ class UsgsApiManager extends EventEmitter {
       // Logout first with the credentials that came in (as in old code)
       // This allows using same login on multiple devices
       try {
-        console.log("[USGS API] Attempting logout with provided credentials");
-        await axios.post(`${USGS_API_URL}/logout`, creds, { timeout: 5000 });
-        console.log("[USGS API] Logout successful");
+        console.log("[USGS API] Attempting logout with provided credentials", {
+          url: `${USGS_API_URL}/logout`,
+          username: creds.username,
+        });
+        const logoutResp = await axios.post(`${USGS_API_URL}/logout`, creds, {
+          timeout: 5000,
+        });
+        console.log("[USGS API] Logout successful", {
+          status: logoutResp.status,
+          statusText: logoutResp.statusText,
+        });
       } catch (e) {
         // Logout errors are expected if there's no active session
-        console.log("[USGS API] Logout failed (ignored)");
+        if (e && typeof e === "object" && "response" in e) {
+          const axiosError = e as {
+            response?: { status?: number; statusText?: string };
+          };
+          console.log("[USGS API] Logout failed (ignored)", {
+            status: axiosError.response?.status,
+            statusText: axiosError.response?.statusText,
+          });
+        } else {
+          console.log("[USGS API] Logout failed (ignored)", { error: e });
+        }
       }
 
-      console.log("[USGS API] Sending login-token request");
+      console.log("[USGS API] Sending login-token request", {
+        url: `${USGS_API_URL}/login-token`,
+        username: creds.username,
+      });
       let resp;
       try {
         resp = await axios.post(`${USGS_API_URL}/login-token`, creds);
+        console.log("[USGS API] Login-token request successful", {
+          status: resp.status,
+          statusText: resp.statusText,
+          hasCookie: !!resp.headers["set-cookie"],
+        });
       } catch (e) {
         console.error("[USGS API] Login-token request failed:", e);
+        if (e && typeof e === "object" && "response" in e) {
+          const axiosError = e as {
+            response?: { status?: number; statusText?: string; data?: unknown };
+          };
+          console.error("[USGS API] Login-token error details:", {
+            status: axiosError.response?.status,
+            statusText: axiosError.response?.statusText,
+            data: axiosError.response?.data,
+          });
+        }
         throw e;
       }
 
@@ -275,12 +360,29 @@ class UsgsApiManager extends EventEmitter {
       (this.axiosInstance.defaults.headers as any)["Cookie"] = cookie;
 
       // Check permissions
-      console.log("[USGS API] Checking permissions");
+      console.log("[USGS API] Checking permissions", {
+        url: "permissions",
+        method: "GET",
+      });
       let permissionsResp;
       try {
         permissionsResp = await this.axiosInstance.get("permissions");
+        console.log("[USGS API] Permissions check successful", {
+          status: permissionsResp.status,
+          statusText: permissionsResp.statusText,
+        });
       } catch (e) {
         console.error("[USGS API] Permissions check failed:", e);
+        if (e && typeof e === "object" && "response" in e) {
+          const axiosError = e as {
+            response?: { status?: number; statusText?: string; data?: unknown };
+          };
+          console.error("[USGS API] Permissions error details:", {
+            status: axiosError.response?.status,
+            statusText: axiosError.response?.statusText,
+            data: axiosError.response?.data,
+          });
+        }
         throw e;
       }
       const permissionsData = permissionsResp.data;
@@ -337,10 +439,29 @@ class UsgsApiManager extends EventEmitter {
   }
 
   async logout(): Promise<void> {
+    console.log("[USGS API] logout: Sending logout request", {
+      url: `${USGS_API_URL}/logout`,
+      method: "POST",
+    });
     try {
-      await this.axiosInstance.post(`${USGS_API_URL}/logout`);
+      const resp = await this.axiosInstance.post(`${USGS_API_URL}/logout`);
+      console.log("[USGS API] logout: Logout successful", {
+        status: resp.status,
+        statusText: resp.statusText,
+      });
     } catch (e) {
       // Ignore errors
+      if (e && typeof e === "object" && "response" in e) {
+        const axiosError = e as {
+          response?: { status?: number; statusText?: string };
+        };
+        console.log("[USGS API] logout: Logout error (ignored)", {
+          status: axiosError.response?.status,
+          statusText: axiosError.response?.statusText,
+        });
+      } else {
+        console.log("[USGS API] logout: Logout error (ignored)", { error: e });
+      }
     }
     this.setAuthStatus("guest");
     // Clear headers
@@ -401,10 +522,18 @@ class UsgsApiManager extends EventEmitter {
 
     // If authorized but cache expired, refresh permissions without full login
     console.log(
-      "[USGS API] Authorized but cache expired, refreshing permissions"
+      "[USGS API] Authorized but cache expired, refreshing permissions",
+      {
+        url: "permissions",
+        method: "GET",
+      }
     );
     try {
       const permissionsResp = await this.axiosInstance.get("permissions");
+      console.log("[USGS API] Permissions refresh successful", {
+        status: permissionsResp.status,
+        statusText: permissionsResp.statusText,
+      });
       const permissionsData = permissionsResp.data;
       const result = { data: permissionsData };
 
@@ -422,6 +551,16 @@ class UsgsApiManager extends EventEmitter {
         "[USGS API] Failed to refresh permissions, falling back to login:",
         e
       );
+      if (e && typeof e === "object" && "response" in e) {
+        const axiosError = e as {
+          response?: { status?: number; statusText?: string; data?: unknown };
+        };
+        console.error("[USGS API] Permissions refresh error details:", {
+          status: axiosError.response?.status,
+          statusText: axiosError.response?.statusText,
+          data: axiosError.response?.data,
+        });
+      }
       // If refresh fails, do full login
       const result = await this.login(creds);
       if (result) {
@@ -502,6 +641,13 @@ class UsgsApiManager extends EventEmitter {
       };
     }
 
+    console.log("[USGS API] searchScenes: Sending scene-search request", {
+      url: "scene-search",
+      method: "POST",
+      maxResults: filters.maxResults,
+      hasDateFilter: !!(filter.startDate && filter.endDate),
+      hasBoundsFilter: !!filter.bounds,
+    });
     const { data, ...props } = await this.axiosInstance.post(
       "scene-search",
       filters
@@ -535,6 +681,12 @@ class UsgsApiManager extends EventEmitter {
       },
     };
 
+    console.log("[USGS API] reindexScene: Sending scene-search request", {
+      url: "scene-search",
+      method: "POST",
+      displayId,
+      maxResults: filters.maxResults,
+    });
     const { data, ...props } = await this.axiosInstance.post(
       "scene-search",
       filters
@@ -566,6 +718,11 @@ class UsgsApiManager extends EventEmitter {
       ),
     };
 
+    console.log("[USGS API] checkDates: Sending scene-search request", {
+      url: "scene-search",
+      method: "POST",
+      maxResults: filters.maxResults,
+    });
     const { data, ...props } = await this.axiosInstance.post(
       "scene-search",
       filters
@@ -580,12 +737,28 @@ class UsgsApiManager extends EventEmitter {
 
   async getDownloadDS(entityId: string) {
     const sceneIds = [entityId];
+    console.log("[USGS API] getDownloadDS: Sending download-options request", {
+      url: "/download-options",
+      method: "POST",
+      entityId,
+      sceneIdsCount: sceneIds.length,
+    });
     const downloadOptions = await this.axiosInstance
       .post("/download-options", {
         datasetName: datasetName,
         entityIds: sceneIds,
       })
-      .then((x) => x.data.data);
+      .then((x) => {
+        console.log(
+          "[USGS API] getDownloadDS: download-options response received",
+          {
+            status: x.status,
+            hasData: !!x.data?.data,
+            optionsCount: Array.isArray(x.data?.data) ? x.data.data.length : 0,
+          }
+        );
+        return x.data.data;
+      });
 
     const requiredLayers = [
       "ST_TRAD",
@@ -642,23 +815,61 @@ class UsgsApiManager extends EventEmitter {
         layerName: USGSLayerType;
       }[] = [];
 
+      console.log("[USGS API] getDownloadDS: Sending download-request", {
+        url: "/download-request",
+        method: "POST",
+        label,
+        downloadsCount: Object.keys(downloads).length,
+      });
       const requestResults = await this.axiosInstance
         .post("/download-request", {
           downloads: downloads,
           label: label,
           downloadApplication: "EE",
         })
-        .then((x) => x.data.data);
+        .then((x) => {
+          console.log(
+            "[USGS API] getDownloadDS: download-request response received",
+            {
+              status: x.status,
+              hasData: !!x.data?.data,
+              hasPreparingDownloads: !!x.data?.data?.preparingDownloads?.length,
+              hasAvailableDownloads: !!x.data?.data?.availableDownloads?.length,
+              preparingCount: x.data?.data?.preparingDownloads?.length || 0,
+              availableCount: x.data?.data?.availableDownloads?.length || 0,
+            }
+          );
+          return x.data.data;
+        });
 
       if (
         requestResults["preparingDownloads"] &&
         requestResults["preparingDownloads"].length
       ) {
+        console.log(
+          "[USGS API] getDownloadDS: Sending download-retrieve request (initial)",
+          {
+            url: "/download-retrieve",
+            method: "POST",
+            label,
+          }
+        );
         const moreDownloadUrls = await this.axiosInstance
           .post("/download-retrieve", {
             label: label,
           })
-          .then((x) => x.data.data);
+          .then((x) => {
+            console.log(
+              "[USGS API] getDownloadDS: download-retrieve response received (initial)",
+              {
+                status: x.status,
+                hasData: !!x.data?.data,
+                availableCount: x.data?.data?.available?.length || 0,
+                requestedCount: x.data?.data?.requested?.length || 0,
+              }
+            );
+            return x.data.data;
+          });
 
         moreDownloadUrls["available"].forEach((download: any) => {
           if (!requiredLayers.find((x) => download["displayId"].includes(x))) {
@@ -681,11 +892,33 @@ class UsgsApiManager extends EventEmitter {
 
         while (downloadUrls.length < requestedDownloadsCount) {
           await new Promise((resolve) => setTimeout(resolve, 5000));
+          console.log(
+            "[USGS API] getDownloadDS: Sending download-retrieve request (retry)",
+            {
+              url: "/download-retrieve",
+              method: "POST",
+              label,
+              currentUrlsCount: downloadUrls.length,
+              requestedCount: requestedDownloadsCount,
+            }
+          );
           const moreDownloadUrls = await this.axiosInstance
             .post("/download-retrieve", {
               label: label,
             })
-            .then((x) => x.data.data);
+            .then((x) => {
+              console.log(
+                "[USGS API] getDownloadDS: download-retrieve response received (retry)",
+                {
+                  status: x.status,
+                  hasData: !!x.data?.data,
+                  availableCount: x.data?.data?.available?.length || 0,
+                  requestedCount: x.data?.data?.requested?.length || 0,
+                  currentUrlsCount: downloadUrls.length,
+                }
+              );
+              return x.data.data;
+            });
 
           moreDownloadUrls["available"].forEach((download: any) => {
             if (!downloadUrls.find((x) => x.id === download["downloadId"])) {

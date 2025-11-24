@@ -1,6 +1,12 @@
-import { AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
-import React from "react";
-import { ISceneState } from "../../../actions/main-actions";
+import {
+  AlertCircle,
+  ChevronDown,
+  ChevronUp,
+  Info,
+  Trash2,
+} from "lucide-react";
+import React, { useState } from "react";
+import { ICalculationResult, ISceneState } from "../../../actions/main-actions";
 import { getFilesProgress } from "./utils";
 
 interface SceneRowExpandedProps {
@@ -8,12 +14,15 @@ interface SceneRowExpandedProps {
   state: ISceneState;
   isFilesExpanded: boolean;
   onToggleFiles: () => void;
+  onCalculationDeleted?: () => void;
 }
 
 export const SceneRowExpanded: React.FC<SceneRowExpandedProps> = ({
+  displayId,
   state,
   isFilesExpanded,
   onToggleFiles,
+  onCalculationDeleted,
 }) => {
   const hasFiles = state && Object.keys(state.donwloadedFiles).length > 0;
 
@@ -102,11 +111,47 @@ export const SceneRowExpanded: React.FC<SceneRowExpandedProps> = ({
                         </span>
                       )}
                     </div>
-                    {calc.endTime && (
-                      <span className="text-xs text-gray-500">
-                        {new Date(calc.endTime).toLocaleString()}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {calc.endTime && (
+                        <span className="text-xs text-gray-500">
+                          {new Date(calc.endTime).toLocaleString()}
+                        </span>
+                      )}
+                      {calc.status === "completed" && (
+                        <div className="flex items-center gap-2">
+                          <CalculationInfoTooltip calc={calc} />
+                          <button
+                            onClick={async () => {
+                              if (
+                                confirm(
+                                  "Are you sure you want to delete this calculation result? This will delete the output directory and cannot be undone."
+                                )
+                              ) {
+                                try {
+                                  await window.ElectronAPI.invoke.deleteCalculation(
+                                    displayId,
+                                    idx
+                                  );
+                                  onCalculationDeleted?.();
+                                } catch (error) {
+                                  console.error(
+                                    "Error deleting calculation:",
+                                    error
+                                  );
+                                  alert(
+                                    `Failed to delete calculation: ${error}`
+                                  );
+                                }
+                              }
+                            }}
+                            className="text-red-400 hover:text-red-300 transition-colors flex items-center justify-center"
+                            title="Delete calculation result"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {calc.status === "running" && (
@@ -144,8 +189,19 @@ export const SceneRowExpanded: React.FC<SceneRowExpandedProps> = ({
                   )}
 
                   {calc.status === "completed" && (
-                    <div className="text-xs text-gray-400">
-                      Results: {calc.resultsPath}
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="text-gray-400">Results:</span>
+                      <button
+                        onClick={() => {
+                          window.ElectronAPI.invoke.openDirectory(
+                            calc.resultsPath
+                          );
+                        }}
+                        className="text-blue-400 hover:text-blue-300 underline transition-colors font-mono"
+                        title="Open results directory"
+                      >
+                        {calc.resultsPath}
+                      </button>
                     </div>
                   )}
                 </div>
@@ -155,5 +211,86 @@ export const SceneRowExpanded: React.FC<SceneRowExpandedProps> = ({
         </div>
       </td>
     </tr>
+  );
+};
+
+const CalculationInfoTooltip: React.FC<{ calc: ICalculationResult }> = ({
+  calc,
+}) => {
+  const [showTooltip, setShowTooltip] = useState(false);
+
+  const formatCalculationInfo = (calc: ICalculationResult): string => {
+    const lines: string[] = [];
+    lines.push(`Status: ${calc.status}`);
+    lines.push(`Start Time: ${new Date(calc.startTime).toLocaleString()}`);
+    if (calc.endTime) {
+      lines.push(`End Time: ${new Date(calc.endTime).toLocaleString()}`);
+    }
+    if (calc.progress !== undefined) {
+      lines.push(`Progress: ${Math.round(calc.progress * 100)}%`);
+    }
+    if (calc.stage) {
+      lines.push(`Stage: ${calc.stage}`);
+    }
+    if (calc.pid) {
+      lines.push(`Process ID: ${calc.pid}`);
+    }
+    if (calc.exitCode !== undefined) {
+      lines.push(`Exit Code: ${calc.exitCode}`);
+    }
+    if (calc.outputSize !== undefined) {
+      const sizeMB = (calc.outputSize / 1024 / 1024).toFixed(2);
+      lines.push(`Output Size: ${sizeMB} MB`);
+    }
+    lines.push("");
+    lines.push("Parameters:");
+    if (calc.parameters.useQAMask) {
+      lines.push("  • Use QA Mask: Yes");
+    }
+    if (calc.parameters.emission !== undefined) {
+      lines.push(`  • Emission: ${calc.parameters.emission}`);
+    }
+    if (calc.parameters.emissionCalcMethod) {
+      lines.push(`  • Emission Method: ${calc.parameters.emissionCalcMethod}`);
+    }
+    if (calc.parameters.saveDirectory) {
+      lines.push(`  • Save Directory: ${calc.parameters.saveDirectory}`);
+    }
+    if (calc.parameters.layerNamePattern) {
+      lines.push(`  • Layer Pattern: ${calc.parameters.layerNamePattern}`);
+    }
+    if (calc.parameters.outLayers) {
+      const enabledLayers = Object.entries(calc.parameters.outLayers)
+        .filter(([, enabled]) => enabled)
+        .map(([layer]) => layer);
+      if (enabledLayers.length > 0) {
+        lines.push(`  • Output Layers: ${enabledLayers.join(", ")}`);
+      }
+    }
+    lines.push("");
+    lines.push(`Results Path: ${calc.resultsPath}`);
+    if (calc.error) {
+      lines.push("");
+      lines.push(`Error: ${calc.error}`);
+    }
+    return lines.join("\n");
+  };
+
+  return (
+    <div className="relative flex items-center">
+      <button
+        onMouseEnter={() => setShowTooltip(true)}
+        onMouseLeave={() => setShowTooltip(false)}
+        className="text-gray-400 hover:text-gray-300 transition-colors"
+        title="Calculation details"
+      >
+        <Info size={14} />
+      </button>
+      {showTooltip && (
+        <div className="absolute right-0 bottom-full mb-2 z-50 w-80 p-3 bg-gray-900 border border-gray-700 rounded shadow-lg text-xs text-gray-300 whitespace-pre-wrap break-words">
+          {formatCalculationInfo(calc)}
+        </div>
+      )}
+    </div>
   );
 };
