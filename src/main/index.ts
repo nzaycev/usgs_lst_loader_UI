@@ -33,6 +33,9 @@ setupRendererLogging();
 // Initialize application
 const fsWatcher = new FsWatcher(app);
 
+// Выполняем миграции при старте, до начала поллинга
+fsWatcher.migrate();
+
 const createWindow = async () => {
   const mainWindow = createMainWindow(fsWatcher);
 

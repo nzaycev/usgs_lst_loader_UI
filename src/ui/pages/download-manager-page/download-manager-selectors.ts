@@ -1,39 +1,8 @@
 import { createSelector } from "@reduxjs/toolkit";
 import { ISceneState, SceneStatus } from "../../../actions/main-actions";
 import { RootState } from "../../app";
+import { parseDisplayId } from "../../widgets/scene-table/utils";
 import { AdditionType } from "./download-manager-slice";
-
-// Helper to parse display ID
-const parseDisplayId = (displayId: string) => {
-  const segments = displayId.split("_");
-  if (segments.length < 4)
-    return {
-      name: displayId,
-      sceneId: displayId,
-      satellite: "Unknown",
-      region: "",
-      date: new Date(0),
-    };
-  const landsatId =
-    segments[0] === "LC08"
-      ? "Landsat 8"
-      : segments[0] === "LC09"
-      ? "Landsat 9"
-      : segments[0];
-  const date = new Date(
-    parseInt(segments[3].slice(0, 4)),
-    parseInt(segments[3].slice(4, 6)) - 1,
-    parseInt(segments[3].slice(6))
-  );
-  const region = segments[2];
-  return {
-    name: displayId,
-    sceneId: displayId,
-    satellite: landsatId,
-    region: region,
-    date: date,
-  };
-};
 
 // Helper to get scene status
 const getSceneStatus = (state: ISceneState): SceneStatus => {
@@ -108,7 +77,7 @@ const selectFilteredScenes = createSelector(
 
       // Filter by satellite type
       if (filters.satelliteType?.length) {
-        const parsed = parseDisplayId(displayId);
+        const parsed = parseDisplayId(displayId, state);
         if (!filters.satelliteType.includes(parsed.satellite)) {
           return false;
         }
@@ -124,7 +93,7 @@ const selectFilteredScenes = createSelector(
 
       // Filter by region
       if (filters.region?.length) {
-        const parsed = parseDisplayId(displayId);
+        const parsed = parseDisplayId(displayId, state);
         if (!filters.region.includes(parsed.region)) {
           return false;
         }
@@ -155,8 +124,8 @@ export const selectFilteredAndSortedScenes = createSelector(
 
       switch (sortField) {
         case "date": {
-          const parsedA = parseDisplayId(a);
-          const parsedB = parseDisplayId(b);
+          const parsedA = parseDisplayId(a, stateA);
+          const parsedB = parseDisplayId(b, stateB);
           comparison = parsedA.date.getTime() - parsedB.date.getTime();
           break;
         }
@@ -165,14 +134,14 @@ export const selectFilteredAndSortedScenes = createSelector(
           break;
         }
         case "satellite": {
-          const parsedA = parseDisplayId(a);
-          const parsedB = parseDisplayId(b);
+          const parsedA = parseDisplayId(a, stateA);
+          const parsedB = parseDisplayId(b, stateB);
           comparison = parsedA.satellite.localeCompare(parsedB.satellite);
           break;
         }
         case "region": {
-          const parsedA = parseDisplayId(a);
-          const parsedB = parseDisplayId(b);
+          const parsedA = parseDisplayId(a, stateA);
+          const parsedB = parseDisplayId(b, stateB);
           comparison = parsedA.region.localeCompare(parsedB.region);
           break;
         }
@@ -214,7 +183,7 @@ export const selectUniqueFilterValues = createSelector(
 
     Object.entries(scenes).forEach(([displayId, state]) => {
       if (!state) return;
-      const parsed = parseDisplayId(displayId);
+      const parsed = parseDisplayId(displayId, state);
       satellites.add(parsed.satellite);
       statuses.add(getSceneStatus(state));
       if (parsed.region) regions.add(parsed.region);

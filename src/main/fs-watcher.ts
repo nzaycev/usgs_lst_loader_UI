@@ -58,6 +58,136 @@ export class FsWatcher {
     }
   }
 
+  /**
+   * Выполняет миграции для всех сцен.
+   * Вызывается только при старте приложения, до начала поллинга.
+   * Использует версионирование для предотвращения повторного выполнения миграций.
+   */
+  migrate(): void {
+    console.log("[Migration] Starting migrations...");
+    const CURRENT_MIGRATION_VERSION = 2; // Увеличивать при добавлении новых миграций
+
+    const dirs: string[] = [];
+
+    // Получаем список всех директорий сцен
+    if (fs.existsSync(this.globalIndexPath)) {
+      const index = JSON.parse(fs.readFileSync(this.globalIndexPath, "utf-8"));
+      if (index.externalPaths) {
+        dirs.push(...index.externalPaths);
+      }
+    }
+    const internalDirs = FastGlob.sync("*", {
+      absolute: true,
+      cwd: this.appdataPath,
+      onlyDirectories: true,
+    });
+    dirs.push(...internalDirs);
+
+    let migratedCount = 0;
+    dirs.forEach((scenePath) => {
+      const indexPath = path.join(scenePath, "index.json");
+      if (!fs.existsSync(indexPath)) {
+        return;
+      }
+
+      try {
+        const indexState: ISceneState & { migrationVersion?: number } =
+          JSON.parse(fs.readFileSync(indexPath, "utf-8"));
+        const currentVersion = indexState.migrationVersion || 0;
+
+        // Пропускаем если уже на актуальной версии
+        if (currentVersion >= CURRENT_MIGRATION_VERSION) {
+          return;
+        }
+
+        let needsSave = false;
+        const updatedState: Partial<ISceneState> & {
+          migrationVersion?: number;
+        } = { ...indexState };
+
+        // Миграция 1: Парсинг captureDate, regionId, satelliteId из displayId для isRepo сцен
+        if (currentVersion < 1 && indexState.isRepo && indexState.displayId) {
+          const segments = indexState.displayId.split("_");
+          const needsMetadataMigration =
+            !indexState.metadata?.captureDate ||
+            !indexState.metadata?.regionId ||
+            !indexState.metadata?.satelliteId;
+
+          if (needsMetadataMigration && segments.length >= 4) {
+            // Парсим captureDate из displayId
+            let captureDate = indexState.metadata?.captureDate;
+            if (!captureDate && segments[3].length >= 8) {
+              const dateStr = segments[3].slice(0, 8);
+              if (/^\d{8}$/.test(dateStr)) {
+                captureDate = `${dateStr.slice(0, 4)}-${dateStr.slice(
+                  4,
+                  6
+                )}-${dateStr.slice(6, 8)}`;
+              }
+            }
+
+            // Парсим regionId из displayId
+            const regionId =
+              indexState.metadata?.regionId ||
+              (segments.length >= 3 ? segments[2] : undefined);
+
+            // Парсим satelliteId из displayId
+            const satelliteId =
+              indexState.metadata?.satelliteId ||
+              (segments.length >= 1 ? segments[0] : undefined);
+
+            if (captureDate || regionId || satelliteId) {
+              updatedState.metadata = {
+                ...indexState.metadata,
+                ...(captureDate && { captureDate }),
+                ...(regionId && { regionId }),
+                ...(satelliteId && { satelliteId }),
+              };
+              needsSave = true;
+            }
+          }
+        }
+
+        // Миграция 2: Обнуление legacy поля calculation если нет массива calculations
+        if (currentVersion < 2) {
+          if (
+            (!indexState.calculations ||
+              indexState.calculations.length === 0) &&
+            indexState.calculation !== undefined &&
+            indexState.calculation !== null &&
+            indexState.calculation !== 0
+          ) {
+            updatedState.calculation = 0;
+            // Удаляем calculationStep если он есть
+            if ("calculationStep" in updatedState) {
+              const stateWithStep = updatedState as Partial<ISceneState> & {
+                calculationStep?: unknown;
+              };
+              delete stateWithStep.calculationStep;
+            }
+            needsSave = true;
+          }
+        }
+
+        // Обновляем версию миграции
+        if (needsSave || currentVersion < CURRENT_MIGRATION_VERSION) {
+          updatedState.migrationVersion = CURRENT_MIGRATION_VERSION;
+          fs.writeFileSync(indexPath, JSON.stringify(updatedState, null, 2));
+          migratedCount++;
+          console.log(
+            `[Migration] Migrated scene: ${path.basename(
+              scenePath
+            )} (version ${currentVersion} -> ${CURRENT_MIGRATION_VERSION})`
+          );
+        }
+      } catch (e) {
+        console.error(`[Migration] Error migrating scene ${scenePath}:`, e);
+      }
+    });
+
+    console.log(`[Migration] Completed. Migrated ${migratedCount} scene(s).`);
+  }
+
   getState() {
     const state: Record<DisplayId, ISceneState> = {};
     const dirs: string[] = [];
@@ -93,6 +223,11 @@ export class FsWatcher {
         type: USGSLayerType,
         size?: number
       ): number | undefined => {
+        // Для !isRepo сцен не считаем прогресс загрузки
+        if (indexState?.isRepo === false) {
+          return undefined;
+        }
+
         const filePath = path.join(
           item,
           `${path.basename(sceneId)}_${type}.TIF`
@@ -107,14 +242,42 @@ export class FsWatcher {
         }
         return;
       };
-      const getFileStats = (type: USGSLayerType) => ({
-        url: indexState?.donwloadedFiles[type]?.url || "",
-        size: indexState?.donwloadedFiles[type]?.size,
-        progress: getFileProgress(
-          type,
-          indexState?.donwloadedFiles[type]?.size
-        ),
-      });
+      const getFileStats = (type: USGSLayerType) => {
+        const existingFile = indexState?.donwloadedFiles[type];
+
+        // Для !isRepo сцен проверяем filePath и обновляем size если файл существует
+        if (indexState?.isRepo === false && existingFile?.filePath) {
+          const fullPath = path.isAbsolute(existingFile.filePath)
+            ? existingFile.filePath
+            : path.join(item, existingFile.filePath);
+
+          let size = existingFile.size;
+          // Если файл существует, обновляем размер
+          if (fs.existsSync(fullPath)) {
+            try {
+              const stats = fs.statSync(fullPath);
+              size = stats.size;
+            } catch (e) {
+              // Игнорируем ошибки чтения файла
+            }
+          }
+
+          return {
+            url: "",
+            filePath: existingFile.filePath,
+            size: size,
+            progress: undefined, // Для !isRepo не используем progress
+          };
+        }
+
+        // Для isRepo сцен используем стандартную логику
+        return {
+          url: existingFile?.url || "",
+          filePath: existingFile?.filePath,
+          size: existingFile?.size,
+          progress: getFileProgress(type, existingFile?.size),
+        };
+      };
       const donwloadedFiles: ISceneState["donwloadedFiles"] = {
         QA_PIXEL: getFileStats("QA_PIXEL"),
         SR_B4: getFileStats("SR_B4"),
@@ -158,43 +321,81 @@ export class FsWatcher {
             sceneStatus = "calculated";
           } else {
             // 4. Проверяем статус загрузки файлов
-            const filesWithUrl = Object.entries(donwloadedFiles);
+            // Для !isRepo сцен используем другую логику - проверяем маппинг файлов
+            if (indexState.isRepo === false) {
+              const requiredLayers: USGSLayerType[] = [
+                "ST_TRAD",
+                "ST_ATRAN",
+                "ST_URAD",
+                "ST_DRAD",
+                "SR_B6",
+                "SR_B5",
+                "SR_B4",
+                "QA_PIXEL",
+              ];
 
-            if (filesWithUrl.length > 0) {
-              // Проверяем прогресс загрузки
-              const allProgresses = filesWithUrl.map(
-                ([, file]) => file.progress
+              const mappedLayers = requiredLayers.filter(
+                (layer) => donwloadedFiles[layer]?.filePath
               );
-              const allComplete = allProgresses.every((p) => p === 1);
+              const allMapped = mappedLayers.length === requiredLayers.length;
 
-              if (allComplete) {
-                // Все файлы загружены (downloaded - приоритет 6)
-                sceneStatus = "downloaded";
+              // Проверяем, что все привязанные файлы существуют
+              const allFilesExist = mappedLayers.every((layer) => {
+                const filePath = donwloadedFiles[layer]?.filePath;
+                if (!filePath) return false;
+                const fullPath = path.isAbsolute(filePath)
+                  ? filePath
+                  : path.join(item, filePath);
+                return fs.existsSync(fullPath);
+              });
+
+              if (allMapped && allFilesExist) {
+                sceneStatus = "ready";
+              } else if (mappedLayers.length > 0) {
+                sceneStatus = "unready";
               } else {
-                // Есть незавершенные загрузки
-                const sceneId = path.basename(item);
-                const hasActiveDownload = this.hasActiveDownloads(sceneId);
-
-                // Проверяем прогресс загрузки
-                const hasAnyProgress = allProgresses.some(
-                  (p) => p !== undefined && p > 0
-                );
-
-                if (hasActiveDownload) {
-                  // Есть активный процесс загрузки (downloading - приоритет 2)
-                  sceneStatus = "downloading";
-                } else if (hasAnyProgress) {
-                  // Есть частично загруженные файлы, но нет активного процесса
-                  // (not ready - приоритет 3)
-                  sceneStatus = "not ready";
-                } else {
-                  // Нет загруженных файлов (new - приоритет 1)
-                  sceneStatus = "new";
-                }
+                sceneStatus = "unready";
               }
             } else {
-              // Нет файлов с URL (new - приоритет 1)
-              sceneStatus = "new";
+              // Для isRepo сцен - проверяем прогресс загрузки
+              const filesWithUrl = Object.entries(donwloadedFiles);
+
+              if (filesWithUrl.length > 0) {
+                // Проверяем прогресс загрузки
+                const allProgresses = filesWithUrl.map(
+                  ([, file]) => file.progress
+                );
+                const allComplete = allProgresses.every((p) => p === 1);
+
+                if (allComplete) {
+                  // Все файлы загружены (downloaded - приоритет 6)
+                  sceneStatus = "downloaded";
+                } else {
+                  // Есть незавершенные загрузки
+                  const sceneId = path.basename(item);
+                  const hasActiveDownload = this.hasActiveDownloads(sceneId);
+
+                  // Проверяем прогресс загрузки
+                  const hasAnyProgress = allProgresses.some(
+                    (p) => p !== undefined && p > 0
+                  );
+
+                  if (hasActiveDownload) {
+                    // Есть активный процесс загрузки (downloading - приоритет 2)
+                    sceneStatus = "downloading";
+                  } else if (hasAnyProgress) {
+                    // Есть частично загруженные файлы, но нет активного процесса
+                    // (not ready - приоритет 3)
+                    sceneStatus = "not ready";
+                  } else {
+                    // Нет загруженных файлов (new - приоритет 1)
+                    sceneStatus = "new";
+                  }
+                }
+              } else {
+                // Нет файлов с URL (new - приоритет 1)
+                sceneStatus = "new";
+              }
             }
           }
         }
@@ -256,6 +457,9 @@ export class FsWatcher {
         }
       }
 
+      // Используем metadata из indexState (миграции уже выполнены при старте через migrate())
+      const metadata = indexState.metadata;
+
       state[path.basename(sceneId)] = {
         displayId: indexState.displayId,
         entityId: indexState.entityId,
@@ -266,6 +470,7 @@ export class FsWatcher {
         calculated: indexState?.calculated || false,
         calculations: calculations, // Используем обновленный массив
         donwloadedFiles,
+        metadata: metadata,
       };
     });
     return state;
@@ -296,11 +501,9 @@ export class FsWatcher {
     fileMapping: Record<string, USGSLayerType>,
     metadata?: {
       displayId: string;
-      entityId?: string;
       captureDate?: string;
-      source?: string;
-      city?: string;
-      displayName?: string;
+      regionId?: string;
+      satelliteId?: string;
     }
   ): ISceneState {
     const indexPath = path.join(folderPath, "index.json");
@@ -329,15 +532,26 @@ export class FsWatcher {
 
     // Заполняем информацию о файлах на основе маппинга
     for (const [fileName, layerType] of Object.entries(fileMapping)) {
-      const filePath = path.join(folderPath, fileName);
-      if (fs.existsSync(filePath)) {
-        const stats = fs.statSync(filePath);
+      // Определяем полный путь к файлу
+      let fullFilePath: string;
+      if (path.isAbsolute(fileName)) {
+        fullFilePath = fileName;
+      } else {
+        fullFilePath = path.join(folderPath, fileName);
+      }
+
+      if (fs.existsSync(fullFilePath)) {
+        const stats = fs.statSync(fullFilePath);
         donwloadedFiles[layerType] = {
+          filePath: fileName, // Сохраняем относительный путь или абсолютный, как было указано
           size: stats.size,
           progress: 1, // Файл уже существует, значит загружен полностью
         };
       } else {
-        donwloadedFiles[layerType] = {};
+        // Файл не существует, но маппинг есть - сохраняем путь
+        donwloadedFiles[layerType] = {
+          filePath: fileName,
+        };
       }
     }
 
@@ -345,30 +559,53 @@ export class FsWatcher {
     const sceneMetadata: ISceneMetadata | undefined = metadata
       ? {
           captureDate: metadata.captureDate,
-          source: metadata.source,
-          city: metadata.city,
-          displayName: metadata.displayName,
+          regionId: metadata.regionId,
+          satelliteId: metadata.satelliteId,
         }
       : existingState?.metadata;
 
-    // Определяем статус для внешней папки
-    // Для внешних папок обычно все файлы уже есть, поэтому статус "downloaded"
-    let externalStatus: SceneStatus = "downloaded";
-    const hasFiles = Object.values(donwloadedFiles).some(
-      (f) => f.progress === 1
+    // Определяем статус для внешней папки (!isRepo)
+    // Проверяем наличие маппинга для всех обязательных слоев
+    const requiredLayers: USGSLayerType[] = [
+      "ST_TRAD",
+      "ST_ATRAN",
+      "ST_URAD",
+      "ST_DRAD",
+      "SR_B6",
+      "SR_B5",
+      "SR_B4",
+      "QA_PIXEL",
+    ];
+
+    const mappedLayers = requiredLayers.filter(
+      (layer) => donwloadedFiles[layer]?.filePath
     );
-    if (!hasFiles) {
-      externalStatus = "new";
+    const allMapped = mappedLayers.length === requiredLayers.length;
+
+    // Проверяем, что все привязанные файлы существуют
+    const allFilesExist = mappedLayers.every((layer) => {
+      const filePath = donwloadedFiles[layer]?.filePath;
+      if (!filePath) return false;
+      const fullPath = path.isAbsolute(filePath)
+        ? filePath
+        : path.join(folderPath, filePath);
+      return fs.existsSync(fullPath);
+    });
+
+    let externalStatus: SceneStatus;
+    if (allMapped && allFilesExist) {
+      externalStatus = "ready";
+    } else if (mappedLayers.length > 0) {
+      externalStatus = "unready";
+    } else {
+      externalStatus = "unready";
     }
 
     // Создаем новое состояние
     const sceneState: ISceneState = {
       isRepo: false,
       scenePath: folderPath,
-      entityId:
-        metadata?.entityId ||
-        existingState?.entityId ||
-        `external_${Date.now()}`,
+      entityId: existingState?.entityId || `external_${Date.now()}`,
       displayId:
         metadata?.displayId ||
         existingState?.displayId ||

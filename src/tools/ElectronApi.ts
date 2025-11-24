@@ -67,26 +67,29 @@ export type RequestApi = {
     fileMapping: Record<string, USGSLayerType>; // filePath -> layerType
     metadata?: {
       displayId: string;
-      entityId?: string;
       captureDate?: string;
-      source?: string;
-      city?: string;
-      displayName?: string;
+      regionId?: string;
+      satelliteId?: string;
     };
   }) => Promise<void>;
   openMappingDialog: (payload: {
     folderPath: string;
     files: string[];
     suggestedMapping?: Record<string, USGSLayerType>;
+    existingMapping?: Record<string, USGSLayerType>; // Для редактирования
+    existingMetadata?: {
+      displayId: string;
+      captureDate?: string;
+      regionId?: string;
+      satelliteId?: string;
+    }; // Для редактирования
   }) => Promise<{
     fileMapping: Record<string, USGSLayerType>;
     metadata?: {
       displayId: string;
-      entityId?: string;
       captureDate?: string;
-      source?: string;
-      city?: string;
-      displayName?: string;
+      regionId?: string;
+      satelliteId?: string;
     };
   } | null>;
   sendMappingDialogResult: (
@@ -94,11 +97,9 @@ export type RequestApi = {
       fileMapping: Record<string, USGSLayerType>;
       metadata?: {
         displayId: string;
-        entityId?: string;
         captureDate?: string;
-        source?: string;
-        city?: string;
-        displayName?: string;
+        regionId?: string;
+        satelliteId?: string;
       };
     } | null
   ) => Promise<void>;

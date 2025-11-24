@@ -1,5 +1,6 @@
 import argparse
 from datetime import datetime
+import json
 import os
 from alive_progress import alive_bar
 import sys
@@ -91,13 +92,41 @@ def applyScaleFactor(band, scale):
 
 def calcAllLST():
     dir = args.path
-    pathTemplate = dir + '/' + dir.split('\\')[-1] + '_{0}.TIF'
     sceneId = dir.split('\\')[-1]
-    date = sceneId.split('_')[3]
+    date = sceneId.split('_')[3] if len(sceneId.split('_')) > 3 else ""
     outTemplate = dir + '/' + outDirName + '/{0}.TIF' if str.startswith(outDirName, './') else outDirName + '/{0}.TIF'
+    
+    # Читаем index.json для получения маппингов файлов (для !isRepo сцен)
+    fileMappings = None
+    indexPath = os.path.join(dir, 'index.json')
+    if os.path.exists(indexPath):
+        try:
+            with open(indexPath, 'r', encoding='utf-8') as f:
+                indexData = json.load(f)
+                if indexData.get('isRepo') == False and indexData.get('donwloadedFiles'):
+                    # Создаем словарь маппингов {layerType: filePath}
+                    fileMappings = {}
+                    for layerType, fileInfo in indexData['donwloadedFiles'].items():
+                        if fileInfo and fileInfo.get('filePath'):
+                            filePath = fileInfo['filePath']
+                            # Если путь относительный, делаем его относительно dir
+                            if not os.path.isabs(filePath):
+                                filePath = os.path.join(dir, filePath)
+                            # Нормализуем путь (убираем лишние разделители, обрабатываем .. и .)
+                            filePath = os.path.normpath(filePath)
+                            fileMappings[layerType] = filePath
+        except Exception as e:
+            print(f"Warning: Could not read file mappings from index.json: {e}")
+            fileMappings = None
+    
+    # Если маппингов нет, используем стандартный шаблон пути
+    pathTemplate = None
+    if not fileMappings or len(fileMappings) == 0:
+        pathTemplate = dir + '/' + dir.split('\\')[-1] + '_{0}.TIF'
+    
     i = 0
     with safe_alive_bar(7, title='Reading bands') as bar:
-        def getBandWithLog(x, pathTemplate, scaleFactor):
+        def getBandWithLog(x, pathTemplate, scaleFactor, fileMappings):
             nonlocal i
             i += 1
             emitProgress(1 / 3 * i / 7, 'Reading')
@@ -105,10 +134,10 @@ def calcAllLST():
                 bar.text = f'-> Reading band {x}...'
             except:
                 pass  # Игнорируем ошибки установки текста
-            res, min, max, _ = getBandByName(x, pathTemplate)
+            res, min, max, _ = getBandByName(x, pathTemplate, fileMappings)
             bar()
             return applyScaleFactor(res, scaleFactor)
-        getBand = lambda x: getBandWithLog(x, pathTemplate, Band.scaleFactors[x])
+        getBand = lambda x: getBandWithLog(x, pathTemplate, Band.scaleFactors[x], fileMappings)
 
         b6_band = getBand(Band.B6_NAME)
         b5_band = getBand(Band.B5_NAME)
@@ -123,7 +152,14 @@ def calcAllLST():
         if custom_Ethalon is not None:
             saveRaster(outTemplate.format(_name), custom_Ethalon, x)
         else:
-            saveRaster(outTemplate.format(_name), pathTemplate.format(Band.B5_NAME), x)
+            # Используем маппинг для эталонного файла, если есть
+            if fileMappings and Band.B5_NAME in fileMappings:
+                etalonPath = fileMappings[Band.B5_NAME]
+            elif pathTemplate:
+                etalonPath = pathTemplate.format(Band.B5_NAME)
+            else:
+                raise ValueError("Не указан ни pathTemplate, ни fileMappings для эталонного файла")
+            saveRaster(outTemplate.format(_name), etalonPath, x)
 
     max_steps = 7 if args.emission else 9
     layers = []
@@ -161,7 +197,13 @@ def calcAllLST():
 
         _surfRad = doWithProgress(lambda: calcSurfRad(ST_TRAD=st_trad_band, ST_URAD=st_urad_band, ST_ATRAN=st_atran_band), "SurfRad")
         _radiance = doWithProgress(lambda: calcRadiance(SurfRad=_surfRad, Emission=_emission, ST_DRAD=st_drad_band), "Radiance")
-        satelliteId = '8' if 'LC08' in pathTemplate else '9'
+        # Определяем satelliteId из маппинга или pathTemplate
+        if fileMappings:
+            # Пробуем определить из первого файла в маппинге
+            firstPath = list(fileMappings.values())[0] if fileMappings else ""
+            satelliteId = '8' if 'LC08' in firstPath else '9'
+        else:
+            satelliteId = '8' if 'LC08' in pathTemplate else '9'
         _bt = doWithProgress(lambda: calcBT(Radiance=_radiance, satelliteId=satelliteId), "BT")
         _lst = doWithProgress(lambda: calcLST(BT=_bt, Emission=_emission), "LST")
 

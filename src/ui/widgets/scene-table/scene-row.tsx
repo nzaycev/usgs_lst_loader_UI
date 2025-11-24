@@ -1,4 +1,5 @@
 import { useToast } from "@chakra-ui/react";
+import { isFulfilled } from "@reduxjs/toolkit";
 import {
   ChevronDown,
   ChevronUp,
@@ -7,14 +8,17 @@ import {
   FolderOpen,
   HardDrive,
   Play,
+  Settings,
 } from "lucide-react";
 import React from "react";
 import Highlighter from "react-highlight-words";
 import {
+  addExternalFolder,
   addSceneToRepo,
   DisplayId,
   ISceneState,
   mainActions,
+  USGSLayerType,
   watchScenesState,
 } from "../../../actions/main-actions";
 import { useLazyGetSceneByIdQuery } from "../../../actions/searchApi";
@@ -63,7 +67,7 @@ export const SceneRow: React.FC<SceneRowProps> = ({
   );
   const [getSceneById] = useLazyGetSceneByIdQuery();
 
-  const sceneInfo = parseDisplayId(displayId);
+  const sceneInfo = parseDisplayId(displayId, state);
   const status = getSceneStatus(state);
 
   // Расчет размеров
@@ -95,6 +99,83 @@ export const SceneRow: React.FC<SceneRowProps> = ({
 
   const handleToggleFilesExpand = () => {
     dispatch(downloadManagerActions.toggleExpandedFilesId(displayId));
+  };
+
+  const handleEditMapping = async () => {
+    if (!state || state.isRepo) return;
+
+    try {
+      // Получаем список файлов из папки
+      const scanResult = await window.ElectronAPI.invoke.scanFolder(
+        state.scenePath
+      );
+
+      // Создаем маппинг из существующих filePath
+      const existingMapping: Record<string, USGSLayerType> = {};
+      Object.entries(state.donwloadedFiles).forEach(([layerType, file]) => {
+        if (file.filePath) {
+          // Нормализуем путь - если абсолютный, оставляем как есть, иначе относительный
+          const normalizedPath = file.filePath.replace(/\\/g, "/");
+          existingMapping[normalizedPath] = layerType as USGSLayerType;
+        }
+      });
+
+      // Открываем диалог редактирования
+      const result = await window.ElectronAPI.invoke.openMappingDialog({
+        folderPath: state.scenePath,
+        files: scanResult.files,
+        suggestedMapping: scanResult.suggestedMapping,
+        existingMapping:
+          Object.keys(existingMapping).length > 0 ? existingMapping : undefined,
+        existingMetadata: state.metadata
+          ? {
+              displayId: state.displayId,
+              captureDate: state.metadata.captureDate,
+              regionId: state.metadata.regionId,
+              satelliteId: state.metadata.satelliteId,
+            }
+          : undefined,
+      });
+
+      if (result) {
+        // Обновляем маппинг через addExternalFolder (он обновит существующий index.json)
+        const action = await dispatch(
+          addExternalFolder({
+            folderPath: state.scenePath,
+            fileMapping: result.fileMapping,
+            metadata: result.metadata,
+          })
+        );
+
+        if (isFulfilled(action)) {
+          toast({
+            title: "Mapping updated",
+            description: "File mapping has been updated successfully",
+            status: "success",
+            duration: 3000,
+            isClosable: true,
+          });
+          dispatch(watchScenesState());
+        } else {
+          toast({
+            title: "Error",
+            description: "Failed to update mapping",
+            status: "error",
+            duration: 3000,
+            isClosable: true,
+          });
+        }
+      }
+    } catch (e) {
+      console.error("Error editing mapping:", e);
+      toast({
+        title: "Error",
+        description: "Failed to open mapping dialog",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+    }
   };
 
   const handleDownload = async () => {
@@ -314,6 +395,15 @@ export const SceneRow: React.FC<SceneRowProps> = ({
             >
               <FolderOpen size={16} />
             </button>
+            {state?.isRepo === false && (
+              <button
+                onClick={handleEditMapping}
+                className="p-1.5 hover:bg-gray-600 rounded transition-colors"
+                title="Edit file mapping"
+              >
+                <Settings size={16} />
+              </button>
+            )}
           </div>
         </td>
       </tr>

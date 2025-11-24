@@ -161,11 +161,9 @@ export function setupFileHandlers(
         fileMapping: Record<string, USGSLayerType>;
         metadata?: {
           displayId: string;
-          entityId?: string;
           captureDate?: string;
-          source?: string;
-          city?: string;
-          displayName?: string;
+          regionId?: string;
+          satelliteId?: string;
         };
       }
     ) => {
@@ -185,6 +183,13 @@ export function setupFileHandlers(
         folderPath: string;
         files: string[];
         suggestedMapping?: Record<string, USGSLayerType>;
+        existingMapping?: Record<string, USGSLayerType>;
+        existingMetadata?: {
+          displayId: string;
+          captureDate?: string;
+          regionId?: string;
+          satelliteId?: string;
+        };
       }
     ): Promise<{
       fileMapping: Record<string, USGSLayerType>;
@@ -285,6 +290,8 @@ export function setupFileHandlers(
           folderPath: payload.folderPath,
           files: payload.files,
           suggestedMapping: payload.suggestedMapping,
+          existingMapping: payload.existingMapping,
+          existingMetadata: payload.existingMetadata,
         };
         const data = encodeURIComponent(JSON.stringify(dialogData));
         dialogWindow.loadURL(

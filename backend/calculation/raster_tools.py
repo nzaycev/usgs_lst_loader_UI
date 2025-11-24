@@ -1,9 +1,35 @@
 import osgeo.gdal as gdal
 import numpy
+import os
 
-def getBandByName(band_name, pathTemplate, saveBand = False):
-    path = pathTemplate.format(band_name)
-    return bandAsArray(path, 1, saveBand)
+def getBandByName(band_name, pathTemplate=None, fileMappings=None, saveBand = False):
+    """
+    Получает канал по имени.
+    
+    Args:
+        band_name: Имя канала (например, "SR_B5", "ST_TRAD")
+        pathTemplate: Шаблон пути для стандартного формата (опционально)
+        fileMappings: Словарь маппингов из index.json {layerType: filePath} (опционально)
+        saveBand: Сохранять ли band объект
+    
+    Returns:
+        tuple: (array, min, max, gdalBand)
+    """
+    # Если есть маппинги, используем их (приоритет)
+    if fileMappings and band_name in fileMappings:
+        path = fileMappings[band_name]
+        # Путь уже должен быть абсолютным (обработан в calculation.py)
+        # Но на всякий случай проверяем
+        if not os.path.isabs(path):
+            path = os.path.abspath(path)
+        return bandAsArray(path, 1, saveBand)
+    
+    # Иначе используем стандартный шаблон
+    if pathTemplate:
+        path = pathTemplate.format(band_name)
+        return bandAsArray(path, 1, saveBand)
+    
+    raise ValueError(f"Не указан ни pathTemplate, ни fileMappings для канала {band_name}")
 
 # функция проверяющая растр на многоканальность
 def isMultiband(path):

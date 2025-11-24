@@ -81,11 +81,9 @@ const api: Api = {
         fileMapping: Record<string, USGSLayerType>;
         metadata?: {
           displayId: string;
-          entityId?: string;
           captureDate?: string;
-          source?: string;
-          city?: string;
-          displayName?: string;
+          regionId?: string;
+          satelliteId?: string;
         };
       } | null;
     },

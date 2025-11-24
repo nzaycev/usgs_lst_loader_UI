@@ -15,6 +15,8 @@ export type USGSLayerType =
 
 export interface ISceneMetadata {
   captureDate?: string;
+  regionId?: string;
+  satelliteId?: string;
   source?: string;
   city?: string;
   displayName?: string;
@@ -49,7 +51,9 @@ export type SceneStatus =
   | "calculating"
   | "calculation error"
   | "calculated"
-  | "downloaded";
+  | "downloaded"
+  | "ready" // Для !isRepo сцен - все файлы привязаны
+  | "unready"; // Для !isRepo сцен - не все файлы привязаны
 
 export interface ISceneState {
   isRepo: boolean; // was it added by app or manually
@@ -61,6 +65,7 @@ export interface ISceneState {
     USGSLayerType,
     {
       url?: string;
+      filePath?: string; // Для !isRepo сцен - путь к файлу из маппинга
       size?: number;
       progress?: number;
     }
@@ -195,11 +200,9 @@ export const addExternalFolder = createAsyncThunk<
     fileMapping: Record<string, USGSLayerType>;
     metadata?: {
       displayId: string;
-      entityId?: string;
       captureDate?: string;
-      source?: string;
-      city?: string;
-      displayName?: string;
+      regionId?: string;
+      satelliteId?: string;
     };
   }
 >("scenes/addExternalFolder", async (payload, thunkApi) => {

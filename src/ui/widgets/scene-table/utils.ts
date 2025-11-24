@@ -38,6 +38,14 @@ export const getFilesProgress = (state: ISceneState | undefined): number => {
   if (!state) return 0;
   const files = Object.values(state.donwloadedFiles);
   if (files.length === 0) return 0;
+
+  // Для !isRepo сцен считаем процент файлов с маппингом
+  if (state.isRepo === false) {
+    const mappedFiles = files.filter((file) => !!file.filePath);
+    return (mappedFiles.length / files.length) * 100;
+  }
+
+  // Для isRepo сцен считаем прогресс загрузки
   const totalProgress = files.reduce(
     (sum, file) => sum + (file.progress || 0),
     0
@@ -64,12 +72,26 @@ export const getDownloadedSize = (
   let downloaded = 0;
   let total = 0;
 
-  Object.values(state.donwloadedFiles).forEach((file) => {
-    if (file.size) {
-      total += file.size;
-      downloaded += file.size * (file.progress || 0);
-    }
-  });
+  // Для !isRepo сцен считаем размер по filePath (если файл существует)
+  if (state.isRepo === false) {
+    Object.values(state.donwloadedFiles).forEach((file) => {
+      if (file.size) {
+        total += file.size;
+        // Если есть filePath, считаем файл "загруженным" (размер учитывается)
+        if (file.filePath) {
+          downloaded += file.size;
+        }
+      }
+    });
+  } else {
+    // Для isRepo сцен считаем по прогрессу загрузки
+    Object.values(state.donwloadedFiles).forEach((file) => {
+      if (file.size) {
+        total += file.size;
+        downloaded += file.size * (file.progress || 0);
+      }
+    });
+  }
 
   return { downloaded, total };
 };
@@ -107,32 +129,77 @@ export const getAggregatedProgress = (
   return progress;
 };
 
-export const parseDisplayId = (displayId: string) => {
+export const parseDisplayId = (displayId: string, state?: ISceneState) => {
   const segments = displayId.split("_");
-  if (segments.length < 4)
-    return {
-      name: displayId,
-      sceneId: displayId,
-      satellite: "Unknown",
-      region: "",
-      date: new Date(0),
-    };
-  const landsatId =
-    segments[0] === "LC08"
-      ? "Landsat 8"
-      : segments[0] === "LC09"
-      ? "Landsat 9"
-      : segments[0];
-  const date = new Date(
-    parseInt(segments[3].slice(0, 4)),
-    parseInt(segments[3].slice(4, 6)) - 1,
-    parseInt(segments[3].slice(6))
-  );
-  const region = segments[2];
+
+  // Используем captureDate из metadata если доступен
+  let date: Date;
+  if (state?.metadata?.captureDate) {
+    const parsedDate = new Date(state.metadata.captureDate);
+    if (!isNaN(parsedDate.getTime())) {
+      date = parsedDate;
+    } else {
+      // Fallback к парсингу из displayId
+      if (segments.length >= 4) {
+        date = new Date(
+          parseInt(segments[3].slice(0, 4)),
+          parseInt(segments[3].slice(4, 6)) - 1,
+          parseInt(segments[3].slice(6))
+        );
+      } else {
+        date = new Date(0);
+      }
+    }
+  } else {
+    // Парсим из displayId
+    if (segments.length >= 4) {
+      date = new Date(
+        parseInt(segments[3].slice(0, 4)),
+        parseInt(segments[3].slice(4, 6)) - 1,
+        parseInt(segments[3].slice(6))
+      );
+    } else {
+      date = new Date(0);
+    }
+  }
+
+  // Используем regionId из metadata если доступен
+  let region: string;
+  if (state?.metadata?.regionId) {
+    region = state.metadata.regionId;
+  } else if (segments.length >= 4) {
+    region = segments[2];
+  } else {
+    region = "";
+  }
+
+  // Используем satelliteId из metadata если доступен, иначе парсим из displayId
+  let satellite: string;
+  if (state?.metadata?.satelliteId) {
+    // Конвертируем satelliteId в человекочитаемый формат
+    const satelliteId = state.metadata.satelliteId;
+    satellite =
+      satelliteId === "LC08"
+        ? "Landsat 8"
+        : satelliteId === "LC09"
+        ? "Landsat 9"
+        : satelliteId;
+  } else if (segments.length >= 4) {
+    // Fallback к парсингу из displayId
+    satellite =
+      segments[0] === "LC08"
+        ? "Landsat 8"
+        : segments[0] === "LC09"
+        ? "Landsat 9"
+        : segments[0];
+  } else {
+    satellite = "Unknown";
+  }
+
   return {
     name: displayId,
     sceneId: displayId,
-    satellite: landsatId,
+    satellite: satellite,
     region: region,
     date: date,
   };
@@ -153,6 +220,8 @@ export const statusColors: Record<string, string> = {
   calculated: "bg-green-900 text-green-300 border-green-700",
   processing: "bg-blue-900 text-blue-300 border-blue-700",
   error: "bg-red-900 text-red-300 border-red-700",
+  ready: "bg-green-900 text-green-300 border-green-700",
+  unready: "bg-orange-900 text-orange-300 border-orange-700",
 };
 
 // Маппинг регионов для humanized отображения

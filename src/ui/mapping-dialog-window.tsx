@@ -39,11 +39,9 @@ const MappingDialogWindow: React.FC<MappingDialogWindowProps> = ({ toast }) => {
   });
 
   const [displayId, setDisplayId] = useState("");
-  const [entityId, setEntityId] = useState("");
   const [captureDate, setCaptureDate] = useState("");
-  const [source, setSource] = useState("");
-  const [city, setCity] = useState("");
-  const [displayName, setDisplayName] = useState("");
+  const [regionId, setRegionId] = useState("");
+  const [satelliteId, setSatelliteId] = useState("");
 
   const layerTypes: USGSLayerType[] = [
     "ST_TRAD",
@@ -68,6 +66,13 @@ const MappingDialogWindow: React.FC<MappingDialogWindowProps> = ({ toast }) => {
           folderPath: string;
           files: string[];
           suggestedMapping?: Record<string, USGSLayerType>;
+          existingMapping?: Record<string, USGSLayerType>;
+          existingMetadata?: {
+            displayId: string;
+            captureDate?: string;
+            regionId?: string;
+            satelliteId?: string;
+          };
         };
         setFolderPath(data.folderPath);
         setFiles(data.files);
@@ -84,7 +89,27 @@ const MappingDialogWindow: React.FC<MappingDialogWindowProps> = ({ toast }) => {
           QA_PIXEL: "",
         };
 
+        // Если есть существующий маппинг, загружаем его
         if (
+          data.existingMapping &&
+          Object.keys(data.existingMapping).length > 0
+        ) {
+          Object.entries(data.existingMapping).forEach(
+            ([fileName, layerType]) => {
+              // Если путь относительный, делаем его абсолютным
+              let filePath: string;
+              if (fileName.startsWith(data.folderPath.replace(/\\/g, "/"))) {
+                filePath = fileName;
+              } else {
+                filePath = `${data.folderPath.replace(
+                  /\\/g,
+                  "/"
+                )}/${fileName}`.replace(/\/+/g, "/");
+              }
+              initialMappings[layerType] = filePath;
+            }
+          );
+        } else if (
           data.suggestedMapping &&
           Object.keys(data.suggestedMapping).length > 0
         ) {
@@ -100,8 +125,16 @@ const MappingDialogWindow: React.FC<MappingDialogWindowProps> = ({ toast }) => {
         }
         setFileMappings(initialMappings);
 
-        // Автозаполнение displayId и captureDate
-        if (data.files.length > 0) {
+        // Загружаем существующие метаданные если есть
+        if (data.existingMetadata) {
+          setDisplayId(data.existingMetadata.displayId || "");
+          setCaptureDate(data.existingMetadata.captureDate || "");
+          setRegionId(data.existingMetadata.regionId || "");
+          setSatelliteId(data.existingMetadata.satelliteId || "");
+        }
+
+        // Автозаполнение displayId и captureDate (только если нет существующих метаданных)
+        if (!data.existingMetadata && data.files.length > 0) {
           const firstFile = data.files[0];
           const extractDisplayId = (fileName: string): string => {
             const withoutExt = fileName.replace(/\.(TIF|tif)$/, "");
@@ -129,12 +162,44 @@ const MappingDialogWindow: React.FC<MappingDialogWindowProps> = ({ toast }) => {
             return "";
           };
 
+          const extractRegionId = (displayId: string): string => {
+            const segments = displayId.split("_");
+            if (segments.length >= 3) {
+              return segments[2];
+            }
+            return "";
+          };
+
+          const extractSatelliteId = (displayId: string): string => {
+            const segments = displayId.split("_");
+            if (segments.length >= 1) {
+              return segments[0];
+            }
+            return "";
+          };
+
           const extractedDisplayId = extractDisplayId(firstFile);
           if (extractedDisplayId) {
             setDisplayId(extractedDisplayId);
+            const extractedRegionId = extractRegionId(extractedDisplayId);
+            if (extractedRegionId) {
+              setRegionId(extractedRegionId);
+            }
+            const extractedSatelliteId = extractSatelliteId(extractedDisplayId);
+            if (extractedSatelliteId) {
+              setSatelliteId(extractedSatelliteId);
+            }
           } else {
             const folderName = data.folderPath.split(/[/\\]/).pop() || "";
             setDisplayId(folderName);
+            const extractedRegionId = extractRegionId(folderName);
+            if (extractedRegionId) {
+              setRegionId(extractedRegionId);
+            }
+            const extractedSatelliteId = extractSatelliteId(folderName);
+            if (extractedSatelliteId) {
+              setSatelliteId(extractedSatelliteId);
+            }
           }
 
           const extractedDate = extractDate(firstFile);
@@ -154,26 +219,23 @@ const MappingDialogWindow: React.FC<MappingDialogWindowProps> = ({ toast }) => {
     value: `${folderPath.replace(/\\/g, "/")}/${file}`.replace(/\/+/g, "/"),
   }));
 
-  const handleFileSelect = async (
-    layerType: USGSLayerType,
-    useDialog: boolean
-  ) => {
-    if (useDialog) {
-      const selectedPath = await window.ElectronAPI.invoke.selectFile();
-      if (selectedPath) {
-        setFileMappings({
-          ...fileMappings,
-          [layerType]: selectedPath,
-        });
-      }
-    }
-  };
-
   const handleSave = () => {
+    // Валидация обязательных полей
     if (!displayId.trim()) {
       toast({
         title: "Error",
         description: "Display ID is required",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+
+    if (!captureDate.trim()) {
+      toast({
+        title: "Error",
+        description: "Capture Date is required",
         status: "error",
         duration: 3000,
         isClosable: true,
@@ -209,14 +271,15 @@ const MappingDialogWindow: React.FC<MappingDialogWindowProps> = ({ toast }) => {
 
     if (unmappedLayers.length > 0) {
       toast({
-        title: "Warning",
-        description: `Some required layers are not mapped: ${unmappedLayers.join(
+        title: "Error",
+        description: `All required layers must be mapped. Missing: ${unmappedLayers.join(
           ", "
         )}`,
-        status: "warning",
+        status: "error",
         duration: 5000,
         isClosable: true,
       });
+      return;
     }
 
     // Отправляем результат обратно через IPC
@@ -224,11 +287,9 @@ const MappingDialogWindow: React.FC<MappingDialogWindowProps> = ({ toast }) => {
       fileMapping,
       metadata: {
         displayId: displayId.trim(),
-        entityId: entityId.trim() || undefined,
-        captureDate: captureDate.trim() || undefined,
-        source: source.trim() || undefined,
-        city: city.trim() || undefined,
-        displayName: displayName.trim() || undefined,
+        captureDate: captureDate.trim(),
+        regionId: regionId.trim() ? regionId.trim() : undefined,
+        satelliteId: satelliteId.trim() ? satelliteId.trim() : undefined,
       },
     });
   };
@@ -266,16 +327,6 @@ const MappingDialogWindow: React.FC<MappingDialogWindowProps> = ({ toast }) => {
           />
         </FormControl>
 
-        <FormControl marginBottom={4}>
-          <FormLabel>Entity ID</FormLabel>
-          <Input
-            placeholder="Auto-generated if empty"
-            value={entityId}
-            onChange={(e) => setEntityId(e.target.value)}
-            size="sm"
-          />
-        </FormControl>
-
         <Box marginBottom="16px">
           <FormLabel
             as="div"
@@ -304,7 +355,7 @@ const MappingDialogWindow: React.FC<MappingDialogWindowProps> = ({ toast }) => {
                     <Flex gap={1} alignItems="center" flex={1}>
                       <Select
                         placeholder="Select file"
-                        value={isFromFolder ? selectedFile : ""}
+                        value={selectedFile ?? ""}
                         onChange={(e) => {
                           setFileMappings({
                             ...fileMappings,
@@ -322,13 +373,6 @@ const MappingDialogWindow: React.FC<MappingDialogWindowProps> = ({ toast }) => {
                           </option>
                         ))}
                       </Select>
-                      <Button
-                        size="xs"
-                        onClick={() => handleFileSelect(layerType, true)}
-                        title="Select file from another folder"
-                      >
-                        ...
-                      </Button>
                     </Flex>
                   </SimpleGrid>
                   {selectedFile && !isFromFolder && (
@@ -350,41 +394,32 @@ const MappingDialogWindow: React.FC<MappingDialogWindowProps> = ({ toast }) => {
         </Box>
 
         <FormControl marginBottom={4}>
-          <FormLabel>Capture Date</FormLabel>
+          <FormLabel>Capture Date *</FormLabel>
           <Input
             type="date"
             value={captureDate}
             onChange={(e) => setCaptureDate(e.target.value)}
             size="sm"
+            required
           />
         </FormControl>
 
         <FormControl marginBottom={4}>
-          <FormLabel>Source</FormLabel>
+          <FormLabel>Region ID</FormLabel>
           <Input
-            placeholder="Data source"
-            value={source}
-            onChange={(e) => setSource(e.target.value)}
+            placeholder="e.g., 142021"
+            value={regionId}
+            onChange={(e) => setRegionId(e.target.value)}
             size="sm"
           />
         </FormControl>
 
         <FormControl marginBottom={4}>
-          <FormLabel>City</FormLabel>
+          <FormLabel>Satellite ID</FormLabel>
           <Input
-            placeholder="City name"
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
-            size="sm"
-          />
-        </FormControl>
-
-        <FormControl marginBottom={4}>
-          <FormLabel>Display Name</FormLabel>
-          <Input
-            placeholder="Additional display name"
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
+            placeholder="e.g., LC08, LC09"
+            value={satelliteId}
+            onChange={(e) => setSatelliteId(e.target.value)}
             size="sm"
           />
         </FormControl>

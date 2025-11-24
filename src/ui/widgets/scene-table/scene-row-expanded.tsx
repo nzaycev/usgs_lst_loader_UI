@@ -53,27 +53,52 @@ export const SceneRowExpanded: React.FC<SceneRowExpandedProps> = ({
               {isFilesExpanded && (
                 <div className="ml-6 space-y-1.5">
                   {Object.entries(state.donwloadedFiles).map(
-                    ([layer, file]) => (
-                      <div
-                        key={layer}
-                        className="flex items-center gap-3 text-xs"
-                      >
-                        <span className="text-gray-400 w-32 font-mono">
-                          {layer}
-                        </span>
-                        <div className="flex-1 bg-gray-700 rounded-full h-1.5 overflow-hidden">
-                          <div
-                            className="h-full bg-green-500 transition-all"
-                            style={{
-                              width: `${(file.progress || 0) * 100}%`,
-                            }}
-                          />
+                    ([layer, file]) => {
+                      const hasMapping = !!file.filePath;
+                      const hasUrl = !!file.url;
+                      const isMapped = state.isRepo === false ? hasMapping : hasUrl;
+                      
+                      return (
+                        <div
+                          key={layer}
+                          className="flex items-center gap-3 text-xs"
+                        >
+                          <span className="text-gray-400 w-32 font-mono">
+                            {layer}
+                          </span>
+                          {state.isRepo === false ? (
+                            // Для !isRepo показываем статус маппинга
+                            <div className="flex-1 flex items-center gap-2">
+                              {hasMapping ? (
+                                <>
+                                  <span className="text-green-400">✓</span>
+                                  <span className="text-gray-500 text-[10px] font-mono truncate">
+                                    {file.filePath}
+                                  </span>
+                                </>
+                              ) : (
+                                <span className="text-orange-400">✗ Not mapped</span>
+                              )}
+                            </div>
+                          ) : (
+                            // Для isRepo показываем прогресс загрузки
+                            <>
+                              <div className="flex-1 bg-gray-700 rounded-full h-1.5 overflow-hidden">
+                                <div
+                                  className="h-full bg-green-500 transition-all"
+                                  style={{
+                                    width: `${(file.progress || 0) * 100}%`,
+                                  }}
+                                />
+                              </div>
+                              <span className="text-gray-500 w-12 text-right">
+                                {Math.round((file.progress || 0) * 100)}%
+                              </span>
+                            </>
+                          )}
                         </div>
-                        <span className="text-gray-500 w-12 text-right">
-                          {Math.round((file.progress || 0) * 100)}%
-                        </span>
-                      </div>
-                    )
+                      );
+                    }
                   )}
                 </div>
               )}
