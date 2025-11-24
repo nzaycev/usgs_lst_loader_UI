@@ -11,12 +11,10 @@ import {
   Spinner,
   Stack,
   Switch,
-  Text,
   useToast,
 } from "@chakra-ui/react";
 import { isEqual } from "lodash";
 import React, { useEffect, useState } from "react";
-import { SettingsChema } from "../main/settings-store";
 import { ModalSystemHelper } from "./ModalSystemHelper";
 import { INetworkSettings } from "./network-settings/network-settings-state";
 import { darkTheme } from "./theme";
@@ -35,8 +33,6 @@ const SettingsDialogWindow: React.FC = () => {
   const [tempSettings, setTempSettings] = useState<
     DeepPartial<INetworkSettings>
   >({});
-  const [userCreds, setUserCreds] = useState<SettingsChema["userdata"]>();
-  const [authorized, setAuthorized] = useState(false);
 
   const hasUnsaved = isEqual(settings, tempSettings);
 
@@ -54,34 +50,8 @@ const SettingsDialogWindow: React.FC = () => {
       }
     };
 
-    const loadUserCreds = async () => {
-      const creds = (await window.ElectronAPI.invoke.getStoreValue(
-        "userdata"
-      )) as SettingsChema["userdata"];
-      setUserCreds(creds);
-      // Check if authorized by checking if we have valid credentials
-      setAuthorized(!!(creds?.username && creds?.token));
-    };
-
     loadSettings();
-    loadUserCreds();
   }, []);
-
-  const handleOpenAuth = async () => {
-    const result = await window.ElectronAPI.invoke.openLoginDialog({
-      username: userCreds?.username,
-      token: userCreds?.token,
-      autoLogin: false,
-    });
-    if (result) {
-      // Reload credentials
-      const creds = (await window.ElectronAPI.invoke.getStoreValue(
-        "userdata"
-      )) as SettingsChema["userdata"];
-      setUserCreds(creds);
-      setAuthorized(!!(creds?.username && creds?.token));
-    }
-  };
 
   const handleClose = () => {
     setTempSettings(settings);
@@ -296,27 +266,6 @@ const SettingsDialogWindow: React.FC = () => {
                 </FormControl>
               </div>
             </div>
-            <Divider mt={6} mb={4} borderColor="gray.700" />
-            <SettingsBlockTitle>
-              <h2 className="text-lg font-medium text-gray-200">
-                USGS Authentication
-              </h2>
-            </SettingsBlockTitle>
-            <FormControl mt={4}>
-              <FormLabel className="text-gray-200">Status</FormLabel>
-              <Text fontSize="sm" mb={2} className="text-gray-300">
-                {authorized && userCreds?.username
-                  ? `Logged in as: ${userCreds.username}`
-                  : "Not authenticated"}
-              </Text>
-              <Button
-                size="sm"
-                colorScheme={authorized ? "green" : "blue"}
-                onClick={handleOpenAuth}
-              >
-                {authorized ? "Edit Credentials" : "Log In"}
-              </Button>
-            </FormControl>
             <div className="flex justify-end gap-2 mt-6">
               <Button
                 colorScheme={"blue"}

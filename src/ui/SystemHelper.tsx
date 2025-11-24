@@ -112,8 +112,14 @@ export const SystemHelper = () => {
         className="flex items-center h-full"
         style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
       >
-        {/* Network status from network-test system */}
-        <div className="flex items-center gap-1.5 mr-1 px-2 h-full">
+        {/* Network status button - opens network settings */}
+        <button
+          title="Network Settings"
+          className="flex items-center gap-1.5 mr-1 px-2 h-full hover:bg-gray-700/50 transition-colors"
+          onClick={async () => {
+            await window.ElectronAPI.invoke.openSettingsDialog();
+          }}
+        >
           {networkState === NetworkState.Stable ? (
             <Wifi size={12} className="text-green-400" />
           ) : networkState === NetworkState.Unstable ? (
@@ -128,10 +134,18 @@ export const SystemHelper = () => {
               ? "offline"
               : "checking"}
           </span>
-        </div>
-        {/* USGS auth status */}
+        </button>
+        {/* USGS auth status button - opens authorization dialog */}
         {usgsStatus && (
-          <div className="flex items-center gap-1.5 mr-1 px-2 h-full">
+          <button
+            title="USGS Authentication"
+            className="flex items-center gap-1.5 mr-1 px-2 h-full hover:bg-gray-700/50 transition-colors"
+            onClick={async () => {
+              await window.ElectronAPI.invoke.openLoginDialog({
+                autoLogin: false,
+              });
+            }}
+          >
             <div
               className={`w-2 h-2 rounded-full ${
                 usgsStatus.auth === "authorized"
@@ -146,18 +160,8 @@ export const SystemHelper = () => {
                 ? usgsStatus.username
                 : usgsStatus.auth}
             </span>
-          </div>
+          </button>
         )}
-        <button
-          title="Settings"
-          className="h-full hover:bg-gray-700/50 transition-colors flex items-center justify-center"
-          style={{ width: `${buttonWidth}px` }}
-          onClick={async () => {
-            await window.ElectronAPI.invoke.openSettingsDialog();
-          }}
-        >
-          <Wifi size={12} className="text-gray-400" />
-        </button>
         <button
           title="Minimize"
           className="h-full hover:bg-gray-700/50 transition-colors flex items-center justify-center"
