@@ -1,7 +1,10 @@
 import { ChevronDown, ChevronUp } from "lucide-react";
 import React from "react";
 import { useAppDispatch, useAppSelector } from "../../app";
-import { downloadManagerActions, SortField } from "../../pages/download-manager-page/download-manager-slice";
+import {
+  downloadManagerActions,
+  SortField,
+} from "../../pages/download-manager-page/download-manager-slice";
 
 interface TableHeaderProps {
   onSelectAll: (checked: boolean) => void;
@@ -36,13 +39,14 @@ export const TableHeader: React.FC<TableHeaderProps> = ({
     <thead className="bg-gray-900 sticky top-0 z-10">
       <tr className="text-left text-xs text-gray-400 border-b border-gray-700">
         <th></th>
-        <th className="p-3 w-10">
+        {/* временно убрал, т.к. пока нормально не работает */}
+        {/* <th className="p-3 w-10">
           <input
             type="checkbox"
             onChange={(e) => onSelectAll(e.target.checked)}
             checked={allSelected && hasItems}
           />
-        </th>
+        </th> */}
         <th
           className="p-3 cursor-pointer hover:text-gray-200 select-none"
           onClick={() => handleSort("additionType")}
@@ -97,4 +101,3 @@ export const TableHeader: React.FC<TableHeaderProps> = ({
     </thead>
   );
 };
-

@@ -266,9 +266,10 @@ export const SceneRow: React.FC<SceneRowProps> = ({
             </button>
           </div>
         </td>
-        <td className="p-3">
+        {/* временно убрал, т.к. пока нормально не работает */}
+        {/* <td className="p-3">
           <input type="checkbox" checked={isSelected} onChange={onSelect} />
-        </td>
+        </td> */}
         <td className="p-3">
           {state?.isRepo === true ? (
             <span title="Downloaded (from repository)">
