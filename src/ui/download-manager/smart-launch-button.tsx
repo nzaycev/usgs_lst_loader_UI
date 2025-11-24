@@ -1,9 +1,17 @@
-import { ChevronDown, FolderOpen, Play, Search, Square, Trash2, X, LucideIcon } from "lucide-react";
-import React, { useMemo, useState, useRef, useEffect } from "react";
+import {
+  ChevronDown,
+  FolderOpen,
+  LucideIcon,
+  Play,
+  Search,
+  Square,
+  Trash2,
+  X,
+} from "lucide-react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { ISceneState, mainActions } from "../../actions/main-actions";
 import { useAppDispatch, useAppSelector } from "../app";
-import { mainActions } from "../../actions/main-actions";
 import { useTypedNavigate } from "../mainWindow";
-import { ISceneState } from "../../actions/main-actions";
 
 type ActionType =
   | "addFromCatalog"
@@ -36,48 +44,48 @@ interface SmartLaunchButtonProps {
 
 const getSceneStatus = (state: ISceneState | undefined): string => {
   if (!state) return "error";
-  
+
   // Если идет расчет
   if (state.calculation > 0 && state.calculation < 1) {
     return "calculation";
   }
-  
+
   // Если расчет завершен
   if (state.calculated) {
     return "ready";
   }
-  
+
   // Если это репозиторий (локальные файлы)
   if (state.isRepo) {
     // Проверяем, есть ли незагруженные файлы
     const hasIncompleteFiles = Object.entries(state.donwloadedFiles).some(
       ([, x]) => !x.progress || x.progress < 1
     );
-    
+
     if (hasIncompleteFiles) {
       return "downloading";
     }
-    
+
     // Все файлы загружены, но расчет не выполнен
     return "downloaded";
   }
-  
+
   // Если это онлайн источник
   // Проверяем, есть ли загруженные файлы
   const hasDownloadedFiles = Object.keys(state.donwloadedFiles).length > 0;
   const hasIncompleteFiles = Object.entries(state.donwloadedFiles).some(
     ([, x]) => !x.progress || x.progress < 1
   );
-  
+
   if (hasIncompleteFiles) {
     return "downloading";
   }
-  
+
   if (hasDownloadedFiles) {
     // Файлы загружены, но расчет не выполнен
     return "downloaded";
   }
-  
+
   // Нет файлов - новый статус
   return "new";
 };
@@ -92,7 +100,9 @@ export const SmartLaunchButton: React.FC<SmartLaunchButtonProps> = ({
   onOpenDirectory,
   onDelete,
 }) => {
-  const { selectedIds, scenes, isActionBusy } = useAppSelector((state) => state.main);
+  const { selectedIds, scenes, isActionBusy } = useAppSelector(
+    (state) => state.main
+  );
   const dispatch = useAppDispatch();
   const navigate = useTypedNavigate();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -106,7 +116,7 @@ export const SmartLaunchButton: React.FC<SmartLaunchButtonProps> = ({
   // Определяем умные действия на основе выбранных элементов
   const actions = useMemo((): Action[] => {
     const allActions: Action[] = [];
-    
+
     if (selectedIds.length === 0) {
       // Пустое выделение - предлагаем добавление коллекции
       return [
@@ -123,7 +133,7 @@ export const SmartLaunchButton: React.FC<SmartLaunchButtonProps> = ({
         },
       ];
     }
-    
+
     // Всегда добавляем опцию "открыть папку с ресурсами" если есть выделение
     allActions.push({
       type: "openDirectory",
@@ -138,13 +148,13 @@ export const SmartLaunchButton: React.FC<SmartLaunchButtonProps> = ({
     const hasCalculated = selectedStatuses.includes("calculated");
     const hasCalculating = selectedStatuses.includes("calculating");
     const hasError = selectedStatuses.includes("error");
-    const hasCancelled = selectedStatuses.includes("downloading cancelled");
+    const hasCancelled = selectedStatuses.includes("not ready");
 
     let primaryAction: Action | null = null;
     const secondaryActions: Action[] = [];
 
     // Приоритет действий (по порядку проверки - только одно primary):
-    
+
     // 1. Если есть calculating - предлагаем stop calculation (высший приоритет)
     if (hasCalculating) {
       primaryAction = {
@@ -218,7 +228,7 @@ export const SmartLaunchButton: React.FC<SmartLaunchButtonProps> = ({
     if (primaryAction) {
       resultActions.push(primaryAction);
     }
-    
+
     // Добавляем secondary actions, исключая те, что уже есть в allActions или primary
     secondaryActions.forEach((action) => {
       if (
@@ -228,7 +238,7 @@ export const SmartLaunchButton: React.FC<SmartLaunchButtonProps> = ({
         resultActions.push(action);
       }
     });
-    
+
     // Добавляем allActions (включая "Open Resources Folder"), исключая дубликаты
     allActions.forEach((action) => {
       if (!resultActions.some((a) => a.type === action.type)) {
@@ -245,14 +255,18 @@ export const SmartLaunchButton: React.FC<SmartLaunchButtonProps> = ({
   // Закрытие dropdown при клике вне
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
         setIsDropdownOpen(false);
       }
     };
 
     if (isDropdownOpen) {
       document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [isDropdownOpen]);
 
@@ -329,7 +343,8 @@ export const SmartLaunchButton: React.FC<SmartLaunchButtonProps> = ({
   };
 
   const PrimaryIcon = primaryAction?.icon || Play;
-  const isDisabled = isActionBusy || (selectedIds.length === 0 && !primaryAction);
+  const isDisabled =
+    isActionBusy || (selectedIds.length === 0 && !primaryAction);
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -362,7 +377,9 @@ export const SmartLaunchButton: React.FC<SmartLaunchButtonProps> = ({
           >
             <ChevronDown
               size={16}
-              className={`transition-transform ${isDropdownOpen ? "rotate-180" : ""}`}
+              className={`transition-transform ${
+                isDropdownOpen ? "rotate-180" : ""
+              }`}
             />
           </button>
         )}
@@ -388,7 +405,13 @@ export const SmartLaunchButton: React.FC<SmartLaunchButtonProps> = ({
           {secondaryActions.length === 0 && !primaryAction && (
             <>
               <button
-                onClick={() => handleSecondaryAction({ type: "addFromCatalog", label: "Add from Catalog", icon: FolderOpen })}
+                onClick={() =>
+                  handleSecondaryAction({
+                    type: "addFromCatalog",
+                    label: "Add from Catalog",
+                    icon: FolderOpen,
+                  })
+                }
                 disabled={isActionBusy}
                 className="w-full px-4 py-2 text-left text-sm text-gray-200 hover:bg-gray-700 flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -396,7 +419,13 @@ export const SmartLaunchButton: React.FC<SmartLaunchButtonProps> = ({
                 Add from Catalog
               </button>
               <button
-                onClick={() => handleSecondaryAction({ type: "findInUSGS", label: "Find in USGS Explorer", icon: Search })}
+                onClick={() =>
+                  handleSecondaryAction({
+                    type: "findInUSGS",
+                    label: "Find in USGS Explorer",
+                    icon: Search,
+                  })
+                }
                 disabled={isActionBusy}
                 className="w-full px-4 py-2 text-left text-sm text-gray-200 hover:bg-gray-700 flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -410,4 +439,3 @@ export const SmartLaunchButton: React.FC<SmartLaunchButtonProps> = ({
     </div>
   );
 };
-

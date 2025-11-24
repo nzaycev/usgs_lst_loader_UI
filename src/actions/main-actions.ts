@@ -45,7 +45,7 @@ export interface ICalculationResult {
 export type SceneStatus =
   | "new"
   | "downloading"
-  | "downloading cancelled"
+  | "not ready"
   | "calculating"
   | "calculation error"
   | "calculated"

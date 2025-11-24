@@ -85,7 +85,9 @@ export const getOutputFilesSize = (state: ISceneState | undefined): number => {
   }, 0);
 };
 
-export const getAggregatedProgress = (state: ISceneState | undefined): number => {
+export const getAggregatedProgress = (
+  state: ISceneState | undefined
+): number => {
   if (!state) return 0;
   let progress = 0;
 
@@ -144,8 +146,7 @@ export const getSceneStatus = (state: ISceneState | undefined): string => {
 export const statusColors: Record<string, string> = {
   new: "bg-gray-700 text-gray-300 border-gray-600",
   downloading: "bg-yellow-900 text-yellow-300 border-yellow-700",
-  "downloading cancelled":
-    "bg-orange-900 text-orange-300 border-orange-700",
+  "not ready": "bg-orange-900 text-orange-300 border-orange-700",
   downloaded: "bg-blue-900 text-blue-300 border-blue-700",
   calculating: "bg-purple-900 text-purple-300 border-purple-700",
   "calculation error": "bg-red-900 text-red-300 border-red-700",
@@ -154,5 +155,17 @@ export const statusColors: Record<string, string> = {
   error: "bg-red-900 text-red-300 border-red-700",
 };
 
+// Маппинг регионов для humanized отображения
+export const regionMapping: Record<string, string> = {
+  "142021": "Красноярск (east)",
+  "143021": "Красноярск (west)",
+};
 
-
+/**
+ * Получает humanized название региона по его ID
+ * @param regionId - ID региона (например, "142021")
+ * @returns Humanized название региона или null, если не найдено
+ */
+export const getRegionName = (regionId: string): string | null => {
+  return regionMapping[regionId] || null;
+};

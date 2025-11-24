@@ -127,7 +127,7 @@ export class FsWatcher {
       };
 
       // Определяем статус сцены
-      // Приоритет: new < downloading < downloading cancelled < calculating < calculated < downloaded
+      // Приоритет: new < downloading < not ready < calculating < calculated < downloaded
       let sceneStatus: SceneStatus = "new";
 
       // 1. Проверяем ошибки расчетов (calculation error - приоритет 4.5)
@@ -185,8 +185,8 @@ export class FsWatcher {
                   sceneStatus = "downloading";
                 } else if (hasAnyProgress) {
                   // Есть частично загруженные файлы, но нет активного процесса
-                  // (downloading cancelled - приоритет 3)
-                  sceneStatus = "downloading cancelled";
+                  // (not ready - приоритет 3)
+                  sceneStatus = "not ready";
                 } else {
                   // Нет загруженных файлов (new - приоритет 1)
                   sceneStatus = "new";

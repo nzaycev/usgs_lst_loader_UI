@@ -72,7 +72,7 @@ export const TableHeader: React.FC<TableHeaderProps> = ({
           <SortIcon field="region" />
         </th>
         <th
-          className="p-3 cursor-pointer hover:text-gray-200 select-none"
+          className="p-3 cursor-pointer hover:text-gray-200 select-none w-[84px]"
           onClick={() => handleSort("status")}
         >
           Status

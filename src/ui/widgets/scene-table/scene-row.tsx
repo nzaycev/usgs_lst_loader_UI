@@ -4,9 +4,9 @@ import {
   ChevronUp,
   Cloud,
   Download,
+  FolderOpen,
   HardDrive,
   Play,
-  Trash2,
 } from "lucide-react";
 import React from "react";
 import Highlighter from "react-highlight-words";
@@ -26,6 +26,7 @@ import {
   getAggregatedProgress,
   getDownloadedSize,
   getOutputFilesSize,
+  getRegionName,
   getSceneStatus,
   getTrProgressStyle,
   parseDisplayId,
@@ -227,14 +228,31 @@ export const SceneRow: React.FC<SceneRowProps> = ({
         <td className="p-3 text-sm text-gray-300">{sceneInfo.satellite}</td>
         <td className="p-3">
           <div className="flex flex-col">
-            <span className="text-sm text-gray-300 font-mono">
-              {sceneInfo.region}
-            </span>
+            {(() => {
+              const regionName = getRegionName(sceneInfo.region);
+              if (regionName) {
+                return (
+                  <>
+                    <span className="text-sm text-gray-300 font-medium">
+                      {regionName}
+                    </span>
+                    <span className="text-xs text-gray-500 font-mono">
+                      {sceneInfo.region}
+                    </span>
+                  </>
+                );
+              }
+              return (
+                <span className="text-sm text-gray-300 font-mono">
+                  {sceneInfo.region}
+                </span>
+              );
+            })()}
           </div>
         </td>
-        <td className="p-3">
+        <td className="p-3 w-[84px]">
           <span
-            className={`inline-block px-2 py-1 rounded text-xs border ${
+            className={`block w-full px-2 py-1 rounded text-xs border text-center ${
               statusColors[status] || statusColors.error
             }`}
           >
@@ -264,7 +282,7 @@ export const SceneRow: React.FC<SceneRowProps> = ({
         </td>
         <td className="p-3">
           <div className="flex gap-1">
-            {(status === "new" || status === "downloading cancelled") &&
+            {(status === "new" || status === "not ready") &&
             state?.isRepo === true ? (
               <button
                 onClick={handleDownload}
@@ -278,7 +296,7 @@ export const SceneRow: React.FC<SceneRowProps> = ({
             {status !== "new" &&
               status !== "downloading" &&
               status !== "calculating" &&
-              status !== "downloading cancelled" && (
+              status !== "not ready" && (
                 <button
                   onClick={() => onStartCalculation({ displayId })}
                   className="p-1.5 hover:bg-gray-600 rounded transition-colors"
@@ -288,10 +306,13 @@ export const SceneRow: React.FC<SceneRowProps> = ({
                 </button>
               )}
             <button
-              className="p-1.5 hover:bg-red-900 text-red-400 rounded transition-colors"
-              title="Delete"
+              onClick={() => {
+                window.ElectronAPI.invoke.openExplorer(displayId);
+              }}
+              className="p-1.5 hover:bg-gray-600 rounded transition-colors"
+              title="Open folder"
             >
-              <Trash2 size={16} />
+              <FolderOpen size={16} />
             </button>
           </div>
         </td>
