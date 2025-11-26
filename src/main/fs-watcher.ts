@@ -9,6 +9,7 @@ import type {
   SceneStatus,
   USGSLayerType,
 } from "../actions/main-actions";
+import { REQUIRED_LAYERS } from "../constants/layers";
 
 export class FsWatcher {
   state: Record<DisplayId, ISceneState>;
@@ -323,21 +324,10 @@ export class FsWatcher {
             // 4. Проверяем статус загрузки файлов
             // Для !isRepo сцен используем другую логику - проверяем маппинг файлов
             if (indexState.isRepo === false) {
-              const requiredLayers: USGSLayerType[] = [
-                "ST_TRAD",
-                "ST_ATRAN",
-                "ST_URAD",
-                "ST_DRAD",
-                "SR_B6",
-                "SR_B5",
-                "SR_B4",
-                "QA_PIXEL",
-              ];
-
-              const mappedLayers = requiredLayers.filter(
+              const mappedLayers = REQUIRED_LAYERS.filter(
                 (layer) => donwloadedFiles[layer]?.filePath
               );
-              const allMapped = mappedLayers.length === requiredLayers.length;
+              const allMapped = mappedLayers.length === REQUIRED_LAYERS.length;
 
               // Проверяем, что все привязанные файлы существуют
               const allFilesExist = mappedLayers.every((layer) => {
@@ -490,7 +480,7 @@ export class FsWatcher {
     );
 
     const prevState: ISceneState = JSON.parse(
-      fs.readFileSync(indexPath).toString()
+      fs.readFileSync(indexPath, "utf-8")
     );
     const newState = callback(prevState);
     fs.writeFileSync(indexPath, JSON.stringify(newState, null, 2));
@@ -512,7 +502,7 @@ export class FsWatcher {
     let existingState: ISceneState | null = null;
     if (fs.existsSync(indexPath)) {
       try {
-        existingState = JSON.parse(fs.readFileSync(indexPath).toString());
+        existingState = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
       } catch (e) {
         console.error("Error reading existing index.json:", e);
       }
@@ -566,21 +556,10 @@ export class FsWatcher {
 
     // Определяем статус для внешней папки (!isRepo)
     // Проверяем наличие маппинга для всех обязательных слоев
-    const requiredLayers: USGSLayerType[] = [
-      "ST_TRAD",
-      "ST_ATRAN",
-      "ST_URAD",
-      "ST_DRAD",
-      "SR_B6",
-      "SR_B5",
-      "SR_B4",
-      "QA_PIXEL",
-    ];
-
-    const mappedLayers = requiredLayers.filter(
+    const mappedLayers = REQUIRED_LAYERS.filter(
       (layer) => donwloadedFiles[layer]?.filePath
     );
-    const allMapped = mappedLayers.length === requiredLayers.length;
+    const allMapped = mappedLayers.length === REQUIRED_LAYERS.length;
 
     // Проверяем, что все привязанные файлы существуют
     const allFilesExist = mappedLayers.every((layer) => {

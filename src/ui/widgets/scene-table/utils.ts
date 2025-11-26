@@ -1,4 +1,5 @@
-import { ISceneState, USGSLayerType } from "../../../actions/main-actions";
+import { ISceneState } from "../../../actions/main-actions";
+import { REQUIRED_LAYERS } from "../../../constants/layers";
 
 export function getTrProgressStyle(
   active: boolean,
@@ -113,18 +114,9 @@ export const getAggregatedProgress = (
   if (!state) return 0;
   let progress = 0;
 
-  const required: USGSLayerType[] = [
-    "ST_TRAD",
-    "ST_ATRAN",
-    "ST_URAD",
-    "ST_DRAD",
-    "SR_B6",
-    "SR_B5",
-    "SR_B4",
-    "QA_PIXEL",
-  ];
-  required.forEach((layer) => {
-    progress += (state.donwloadedFiles[layer]?.progress || 0) / required.length;
+  REQUIRED_LAYERS.forEach((layer) => {
+    progress +=
+      (state.donwloadedFiles[layer]?.progress || 0) / REQUIRED_LAYERS.length;
   });
   return progress;
 };

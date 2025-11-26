@@ -197,6 +197,22 @@ const api: Api = {
       // startDrag должен быть вызван синхронно во время dragstart события
       electronIpcRenderer.send("start-drag", directoryPath);
     },
+    async openFile(filePath) {
+      await ipcRenderer.invoke<Api>("openFile", filePath);
+    },
+    async startDragFile(filePath) {
+      electronIpcRenderer.send("start-drag-file", filePath);
+    },
+    async startDragRequiredLayers(displayId) {
+      electronIpcRenderer.send("start-drag-required-layers", displayId);
+    },
+    async getResultsFiles(resultsPath, outputLayers) {
+      return (await ipcRenderer.invoke<Api>(
+        "getResultsFiles",
+        resultsPath,
+        outputLayers
+      )) as string[];
+    },
   },
   on: {
     stateChange(listener) {

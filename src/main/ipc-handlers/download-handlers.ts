@@ -18,7 +18,7 @@ export function setupDownloadHandlers(
     const indexPath = path.join(scenePath, "index.json");
     if (fs.existsSync(layerPath)) {
       const index: ISceneState = JSON.parse(
-        fs.readFileSync(indexPath).toString()
+        fs.readFileSync(indexPath, "utf-8")
       );
       const { size } = index.donwloadedFiles[type as USGSLayerType];
       if (size !== fs.statSync(layerPath).size) {

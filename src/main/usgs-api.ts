@@ -2,6 +2,7 @@ import axios, { AxiosError, AxiosInstance } from "axios";
 import { BrowserWindow } from "electron";
 import { EventEmitter } from "events";
 import { USGSLayerType } from "../actions/main-actions";
+import { REQUIRED_LAYERS } from "../constants/layers";
 import { ISearchScenesFilter } from "../tools/ElectronApi";
 import { configureAxiosProxy } from "./axios-proxy-config";
 import { SettingsChema, store } from "./settings-store";
@@ -868,16 +869,7 @@ class UsgsApiManager extends EventEmitter {
         return x.data.data;
       });
 
-    const requiredLayers = [
-      "ST_TRAD",
-      "ST_ATRAN",
-      "ST_URAD",
-      "ST_DRAD",
-      "SR_B5",
-      "SR_B6",
-      "SR_B4",
-      "QA_PIXEL",
-    ];
+    const requiredLayers = [...REQUIRED_LAYERS];
 
     const check_name = (name: string) => {
       for (let i = 0; i < requiredLayers.length; i += 1) {

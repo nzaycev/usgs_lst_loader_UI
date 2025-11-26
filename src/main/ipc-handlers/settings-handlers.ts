@@ -50,7 +50,7 @@ export function setupSettingsHandlers(mainWindow: BrowserWindow) {
 
     if (fs.existsSync(indexPath)) {
       const indexState: ISceneState = JSON.parse(
-        fs.readFileSync(indexPath).toString()
+        fs.readFileSync(indexPath, "utf-8")
       );
 
       // Ищем активный расчет
@@ -119,7 +119,7 @@ export function setupSettingsHandlers(mainWindow: BrowserWindow) {
           console.log(
             "[Settings] Migrating network settings from .networkSettings file to store"
           );
-          const fileContent = fs.readFileSync(userSettingsPath).toString();
+          const fileContent = fs.readFileSync(userSettingsPath, "utf-8");
           const oldSettings = JSON.parse(fileContent) as INetworkSettings;
           if (oldSettings.proxy) {
             // Migrate to store

@@ -24,6 +24,7 @@ import {
 import { useLazyGetSceneByIdQuery } from "../../../actions/searchApi";
 import { useAppDispatch, useAppSelector } from "../../app";
 import { downloadManagerActions } from "../../pages/download-manager-page/download-manager-slice";
+import { handleDragRequiredLayers, handleOpenExplorer } from "./file-handlers";
 import { SceneRowExpanded } from "./scene-row-expanded";
 import {
   formatBytes,
@@ -50,10 +51,8 @@ interface SceneRowProps {
 export const SceneRow: React.FC<SceneRowProps> = ({
   displayId,
   state,
-  isSelected,
   isExpanded,
   isFilesExpanded,
-  onSelect,
   onStartCalculation,
 }) => {
   const dispatch = useAppDispatch();
@@ -296,7 +295,22 @@ export const SceneRow: React.FC<SceneRowProps> = ({
             ) : (
               <span className="text-sm font-medium">{sceneInfo.name}</span>
             )}
-            <span className="text-xs text-gray-500 font-mono">
+            <button
+              draggable
+              onDragStart={(e) => {
+                e.preventDefault();
+                try {
+                  handleDragRequiredLayers(displayId);
+                } catch (error) {
+                  console.error("Error starting drag:", error);
+                }
+              }}
+              onClick={() => {
+                handleOpenExplorer(displayId);
+              }}
+              className="text-xs text-gray-500 font-mono text-left hover:text-blue-400 underline transition-colors cursor-grab active:cursor-grabbing"
+              title="Click to open directory, drag to copy required TIF files"
+            >
               <Highlighter
                 highlightClassName="bg-yellow-400 text-gray-900 font-semibold"
                 searchWords={searchQuery ? [searchQuery] : []}
@@ -304,7 +318,7 @@ export const SceneRow: React.FC<SceneRowProps> = ({
                 textToHighlight={sceneInfo.sceneId}
                 caseSensitive={false}
               />
-            </span>
+            </button>
           </div>
         </td>
         <td className="p-3 text-sm text-gray-300">{sceneInfo.satellite}</td>

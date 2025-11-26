@@ -7,6 +7,13 @@ import {
 } from "lucide-react";
 import React, { useState } from "react";
 import { ICalculationResult, ISceneState } from "../../../actions/main-actions";
+import {
+  getLayerFilePath,
+  handleDragDirectory,
+  handleDragFile,
+  handleOpenDirectory,
+  handleOpenFile,
+} from "./file-handlers";
 import { getFilesProgress } from "./utils";
 
 interface SceneRowExpandedProps {
@@ -25,6 +32,47 @@ export const SceneRowExpanded: React.FC<SceneRowExpandedProps> = ({
   onCalculationDeleted,
 }) => {
   const hasFiles = state && Object.keys(state.donwloadedFiles).length > 0;
+  const [expandedCalculations, setExpandedCalculations] = useState<Set<number>>(
+    new Set()
+  );
+  const [resultsFiles, setResultsFiles] = useState<Record<number, string[]>>(
+    {}
+  );
+
+  const handleToggleCalculationResults = async (
+    calcIdx: number,
+    calc: ICalculationResult
+  ) => {
+    if (expandedCalculations.has(calcIdx)) {
+      // Сворачиваем
+      setExpandedCalculations((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(calcIdx);
+        return newSet;
+      });
+    } else {
+      // Разворачиваем и загружаем файлы
+      if (
+        calc.status === "completed" &&
+        calc.resultsPath &&
+        calc.parameters.outLayers
+      ) {
+        try {
+          const files = await window.ElectronAPI.invoke.getResultsFiles(
+            calc.resultsPath,
+            calc.parameters.outLayers
+          );
+          setResultsFiles((prev) => ({
+            ...prev,
+            [calcIdx]: files,
+          }));
+        } catch (error) {
+          console.error("Error loading results files:", error);
+        }
+      }
+      setExpandedCalculations((prev) => new Set(prev).add(calcIdx));
+    }
+  };
 
   return (
     <tr className="bg-gray-850 border-b border-gray-700">
@@ -55,16 +103,45 @@ export const SceneRowExpanded: React.FC<SceneRowExpandedProps> = ({
                   {Object.entries(state.donwloadedFiles).map(
                     ([layer, file]) => {
                       const hasMapping = !!file.filePath;
-                      const hasUrl = !!file.url;
+                      const layerFilePath = getLayerFilePath(
+                        displayId,
+                        layer,
+                        state.scenePath,
+                        state.isRepo ?? true,
+                        file.filePath
+                      );
+                      const canInteract =
+                        hasMapping || (state.isRepo && file.progress === 1);
 
                       return (
                         <div
                           key={layer}
                           className="flex items-center gap-3 text-xs"
                         >
-                          <span className="text-gray-400 w-32 font-mono">
-                            {layer}
-                          </span>
+                          {canInteract && layerFilePath ? (
+                            <button
+                              draggable
+                              onDragStart={(e) => {
+                                e.preventDefault();
+                                try {
+                                  handleDragFile(layerFilePath);
+                                } catch (error) {
+                                  console.error("Error starting drag:", error);
+                                }
+                              }}
+                              onClick={() => {
+                                handleOpenFile(layerFilePath);
+                              }}
+                              className="text-gray-400 w-32 font-mono text-left hover:text-blue-400 underline transition-colors cursor-grab active:cursor-grabbing"
+                              title="Click to open file, drag to copy"
+                            >
+                              {layer}
+                            </button>
+                          ) : (
+                            <span className="text-gray-400 w-32 font-mono">
+                              {layer}
+                            </span>
+                          )}
                           {state.isRepo === false ? (
                             // Для !isRepo показываем статус маппинга
                             <div className="flex-1 flex items-center gap-2">
@@ -115,7 +192,7 @@ export const SceneRowExpanded: React.FC<SceneRowExpandedProps> = ({
               {state.calculations.map((calc, idx) => (
                 <div
                   key={idx}
-                  className="ml-6 space-y-1.5 p-2 bg-gray-800 rounded border border-gray-700"
+                  className="space-y-1.5 p-2 bg-gray-800 rounded border border-gray-700"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -215,34 +292,77 @@ export const SceneRowExpanded: React.FC<SceneRowExpandedProps> = ({
                   )}
 
                   {calc.status === "completed" && (
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className="text-gray-400">Results:</span>
-                      <button
-                        draggable
-                        onDragStart={(e) => {
-                          e.preventDefault();
-                          try {
-                            // В Electron 17 startDrag поддерживает только один файл
-                            // Перетаскиваем первый файл из папки
-                            // Для перетаскивания всех файлов пользователь может
-                            // открыть папку через клик и перетащить файлы оттуда
-                            window.ElectronAPI.invoke.startDrag(
-                              calc.resultsPath
-                            );
-                          } catch (error) {
-                            console.error("Error starting drag:", error);
+                    <div className="space-y-1.5 overflow-hidden">
+                      <div className="flex items-center gap-2 text-xs overflow-hidden">
+                        <span className="text-gray-400">Results:</span>
+                        <button
+                          draggable
+                          onDragStart={(e) => {
+                            e.preventDefault();
+                            try {
+                              handleDragDirectory(calc.resultsPath);
+                            } catch (error) {
+                              console.error("Error starting drag:", error);
+                            }
+                          }}
+                          onClick={() => {
+                            handleOpenDirectory(calc.resultsPath);
+                          }}
+                          className="text-blue-400 hover:text-blue-300 underline transition-colors font-mono cursor-grab active:cursor-grabbing whitespace-nowrap text-ellipsis overflow-hidden"
+                          title="Drag to copy all files or click to open directory"
+                        >
+                          {calc.resultsPath}
+                        </button>
+                        <button
+                          onClick={() =>
+                            handleToggleCalculationResults(idx, calc)
                           }
-                        }}
-                        onClick={() => {
-                          window.ElectronAPI.invoke.openDirectory(
-                            calc.resultsPath
-                          );
-                        }}
-                        className="text-blue-400 hover:text-blue-300 underline transition-colors font-mono cursor-grab active:cursor-grabbing"
-                        title="Drag first file to other applications or click to open directory"
-                      >
-                        {calc.resultsPath}
-                      </button>
+                          className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-300 transition-colors"
+                        >
+                          {expandedCalculations.has(idx) ? (
+                            <ChevronUp size={12} />
+                          ) : (
+                            <ChevronDown size={12} />
+                          )}
+                          <span>Files</span>
+                        </button>
+                      </div>
+                      {expandedCalculations.has(idx) && resultsFiles[idx] && (
+                        <div className="ml-6 space-y-1">
+                          {resultsFiles[idx].map((filePath, fileIdx) => {
+                            const fileName =
+                              filePath.split(/[/\\]/).pop() || filePath;
+                            return (
+                              <div
+                                key={fileIdx}
+                                className="flex items-center gap-2 text-xs"
+                              >
+                                <button
+                                  draggable
+                                  onDragStart={(e) => {
+                                    e.preventDefault();
+                                    try {
+                                      handleDragFile(filePath);
+                                    } catch (error) {
+                                      console.error(
+                                        "Error starting drag:",
+                                        error
+                                      );
+                                    }
+                                  }}
+                                  onClick={() => {
+                                    handleOpenFile(filePath);
+                                  }}
+                                  className="text-blue-400 hover:text-blue-300 underline transition-colors font-mono cursor-grab active:cursor-grabbing truncate"
+                                  title="Click to open file, drag to copy"
+                                >
+                                  {fileName}
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

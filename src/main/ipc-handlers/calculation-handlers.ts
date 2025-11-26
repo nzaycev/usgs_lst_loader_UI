@@ -341,7 +341,7 @@ exit /b %errorlevel%`;
         // Обновляем состояние после завершения
         if (fs.existsSync(indexPath)) {
           const updatedState: ISceneState = JSON.parse(
-            fs.readFileSync(indexPath).toString()
+            fs.readFileSync(indexPath, "utf-8")
           );
 
           console.log(
@@ -543,7 +543,7 @@ exit /b %errorlevel%`;
 
         if (fs.existsSync(indexPath)) {
           const updatedState: ISceneState = JSON.parse(
-            fs.readFileSync(indexPath).toString()
+            fs.readFileSync(indexPath, "utf-8")
           );
 
           if (

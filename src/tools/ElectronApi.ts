@@ -155,6 +155,13 @@ export type RequestApi = {
   usgsLogout: () => Promise<void>;
   testNetwork: () => Promise<{ success: boolean; status?: number }>;
   startDrag: (directoryPath: string) => Promise<void>;
+  openFile: (filePath: string) => Promise<void>;
+  startDragFile: (filePath: string) => Promise<void>;
+  startDragRequiredLayers: (displayId: string) => Promise<void>;
+  getResultsFiles: (
+    resultsPath: string,
+    outputLayers: Record<string, boolean>
+  ) => Promise<string[]>;
 };
 
 export type ParsedPath = {
