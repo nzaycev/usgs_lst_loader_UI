@@ -154,6 +154,7 @@ export type RequestApi = {
   }>;
   usgsLogout: () => Promise<void>;
   testNetwork: () => Promise<{ success: boolean; status?: number }>;
+  startDrag: (directoryPath: string) => Promise<void>;
 };
 
 export type ParsedPath = {

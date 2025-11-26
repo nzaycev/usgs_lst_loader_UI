@@ -1,5 +1,10 @@
 import { spawn } from "child_process";
-import { BrowserWindow, dialog, ipcMain as electronIpcMain } from "electron";
+import {
+  BrowserWindow,
+  dialog,
+  ipcMain as electronIpcMain,
+  nativeImage,
+} from "electron";
 import { ipcMain } from "electron-typescript-ipc";
 import fs from "fs";
 import path from "path";
@@ -175,6 +180,66 @@ export function setupFileHandlers(
     }
   );
 
+  electronIpcMain.on("start-drag", async (event, directoryPath: string) => {
+    // Нормализуем путь для Windows
+    const normalizedPath = path.normalize(directoryPath);
+
+    console.log("[startDrag] Starting drag for directory:", normalizedPath);
+
+    // Проверяем, что директория существует
+    if (!fs.existsSync(normalizedPath)) {
+      console.error("[startDrag] Directory does not exist:", normalizedPath);
+      return;
+    }
+
+    try {
+      // Читаем все элементы в директории
+      const items = fs.readdirSync(normalizedPath);
+      const filePaths: string[] = [];
+
+      // Фильтруем только файлы (не папки) и собираем полные пути
+      for (const item of items) {
+        if (!item.endsWith(".TIF")) {
+          continue;
+        }
+        const itemPath = path.join(normalizedPath, item);
+        try {
+          const stat = fs.statSync(itemPath);
+          if (stat.isFile()) {
+            filePaths.push(itemPath);
+          }
+        } catch (error) {
+          // Игнорируем ошибки доступа к отдельным файлам
+          console.warn("[startDrag] Error reading file:", itemPath, error);
+        }
+      }
+
+      if (filePaths.length === 0) {
+        console.warn(
+          "[startDrag] No files found in directory:",
+          normalizedPath
+        );
+        return;
+      }
+
+      console.log(
+        `[startDrag] Found ${filePaths.length} files, dragging first file:`,
+        filePaths[0]
+      );
+
+      event.sender.startDrag({
+        file: filePaths[0],
+        files: filePaths,
+        icon: await nativeImage.createThumbnailFromPath(filePaths[0], {
+          width: 16,
+          height: 16,
+        }),
+      });
+    } catch (error) {
+      console.error("[startDrag] Error reading directory:", error);
+    }
+  });
+
   ipcMain.handle<Api>(
     "openMappingDialog",
     async (
@@ -302,18 +367,21 @@ export function setupFileHandlers(
         dialogWindow.show();
 
         // добавляем горячую клавишу F12 для переключения DevTools
-        dialogWindow.webContents.on("before-input-event", (_event, input) => {
-          if (
-            input.key === "F12" ||
-            (input.control && input.shift && input.key === "I")
-          ) {
-            if (dialogWindow.webContents.isDevToolsOpened()) {
-              dialogWindow.webContents.closeDevTools();
-            } else {
-              dialogWindow.webContents.openDevTools();
+        dialogWindow.webContents.on(
+          "before-input-event",
+          (_event: Electron.Event, input: Electron.Input) => {
+            if (
+              input.key === "F12" ||
+              (input.control && input.shift && input.key === "I")
+            ) {
+              if (dialogWindow.webContents.isDevToolsOpened()) {
+                dialogWindow.webContents.closeDevTools();
+              } else {
+                dialogWindow.webContents.openDevTools();
+              }
             }
           }
-        });
+        );
 
         // Если окно закрыто без результата
         dialogWindow.on("closed", () => {

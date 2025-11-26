@@ -56,8 +56,7 @@ export const SceneRowExpanded: React.FC<SceneRowExpandedProps> = ({
                     ([layer, file]) => {
                       const hasMapping = !!file.filePath;
                       const hasUrl = !!file.url;
-                      const isMapped = state.isRepo === false ? hasMapping : hasUrl;
-                      
+
                       return (
                         <div
                           key={layer}
@@ -77,7 +76,9 @@ export const SceneRowExpanded: React.FC<SceneRowExpandedProps> = ({
                                   </span>
                                 </>
                               ) : (
-                                <span className="text-orange-400">✗ Not mapped</span>
+                                <span className="text-orange-400">
+                                  ✗ Not mapped
+                                </span>
                               )}
                             </div>
                           ) : (
@@ -217,13 +218,28 @@ export const SceneRowExpanded: React.FC<SceneRowExpandedProps> = ({
                     <div className="flex items-center gap-2 text-xs">
                       <span className="text-gray-400">Results:</span>
                       <button
+                        draggable
+                        onDragStart={(e) => {
+                          e.preventDefault();
+                          try {
+                            // В Electron 17 startDrag поддерживает только один файл
+                            // Перетаскиваем первый файл из папки
+                            // Для перетаскивания всех файлов пользователь может
+                            // открыть папку через клик и перетащить файлы оттуда
+                            window.ElectronAPI.invoke.startDrag(
+                              calc.resultsPath
+                            );
+                          } catch (error) {
+                            console.error("Error starting drag:", error);
+                          }
+                        }}
                         onClick={() => {
                           window.ElectronAPI.invoke.openDirectory(
                             calc.resultsPath
                           );
                         }}
-                        className="text-blue-400 hover:text-blue-300 underline transition-colors font-mono"
-                        title="Open results directory"
+                        className="text-blue-400 hover:text-blue-300 underline transition-colors font-mono cursor-grab active:cursor-grabbing"
+                        title="Drag first file to other applications or click to open directory"
                       >
                         {calc.resultsPath}
                       </button>

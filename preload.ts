@@ -192,6 +192,11 @@ const api: Api = {
         status?: number;
       };
     },
+    async startDrag(directoryPath) {
+      // Используем send вместо invoke для синхронной отправки события
+      // startDrag должен быть вызван синхронно во время dragstart события
+      electronIpcRenderer.send("start-drag", directoryPath);
+    },
   },
   on: {
     stateChange(listener) {
