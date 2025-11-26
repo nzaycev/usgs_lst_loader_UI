@@ -554,6 +554,44 @@ export function setupFileHandlers(
     }
   );
 
+  // Обработчик для получения путей к папкам при drop
+  ipcMain.handle<Api>(
+    "validateDroppedPaths",
+    async (_, paths: string[]) => {
+      const folders: string[] = [];
+      const errors: string[] = [];
+
+      for (const droppedPath of paths) {
+        const normalizedPath = path.normalize(droppedPath);
+
+        try {
+          if (!fs.existsSync(normalizedPath)) {
+            errors.push(`Path does not exist: ${normalizedPath}`);
+            continue;
+          }
+
+          const stat = fs.statSync(normalizedPath);
+          if (stat.isDirectory()) {
+            folders.push(normalizedPath);
+          } else {
+            errors.push(`Not a folder: ${normalizedPath}`);
+          }
+        } catch (error) {
+          errors.push(
+            `Error checking path ${normalizedPath}: ${
+              error instanceof Error ? error.message : String(error)
+            }`
+          );
+        }
+      }
+
+      return {
+        folders,
+        errors,
+      };
+    }
+  );
+
   ipcMain.handle<Api>(
     "openMappingDialog",
     async (

@@ -48,5 +48,13 @@ export function createMainWindow(fsWatcher: FsWatcher): BrowserWindow {
     applyProxySettings(app, mainWindow, proxySettings);
   }
 
+  // Handle drop events from external applications
+  mainWindow.webContents.on("will-navigate", (event, url) => {
+    // Prevent navigation on file drops
+    if (url.startsWith("file://")) {
+      event.preventDefault();
+    }
+  });
+
   return mainWindow;
 }

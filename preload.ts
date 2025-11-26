@@ -213,6 +213,12 @@ const api: Api = {
         outputLayers
       )) as string[];
     },
+    async validateDroppedPaths(paths) {
+      return (await ipcRenderer.invoke<Api>(
+        "validateDroppedPaths",
+        paths
+      )) as { folders: string[]; errors: string[] };
+    },
   },
   on: {
     stateChange(listener) {

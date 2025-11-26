@@ -162,6 +162,9 @@ export type RequestApi = {
     resultsPath: string,
     outputLayers: Record<string, boolean>
   ) => Promise<string[]>;
+  validateDroppedPaths: (
+    paths: string[]
+  ) => Promise<{ folders: string[]; errors: string[] }>;
 };
 
 export type ParsedPath = {
