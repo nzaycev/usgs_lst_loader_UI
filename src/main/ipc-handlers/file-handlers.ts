@@ -13,10 +13,8 @@ import type { USGSLayerType } from "../../actions/main-actions";
 import { REQUIRED_LAYERS } from "../../constants/layers";
 import type { Api } from "../../tools/ElectronApi";
 import { FsWatcher } from "../fs-watcher";
+import { getPreloadPath, getRendererUrl } from "../paths";
 import { scenePathResolver } from "../scene-path-resolver";
-
-declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
-declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
 
 export function setupFileHandlers(
   mainWindow: BrowserWindow,
@@ -555,42 +553,39 @@ export function setupFileHandlers(
   );
 
   // Обработчик для получения путей к папкам при drop
-  ipcMain.handle<Api>(
-    "validateDroppedPaths",
-    async (_, paths: string[]) => {
-      const folders: string[] = [];
-      const errors: string[] = [];
+  ipcMain.handle<Api>("validateDroppedPaths", async (_, paths: string[]) => {
+    const folders: string[] = [];
+    const errors: string[] = [];
 
-      for (const droppedPath of paths) {
-        const normalizedPath = path.normalize(droppedPath);
+    for (const droppedPath of paths) {
+      const normalizedPath = path.normalize(droppedPath);
 
-        try {
-          if (!fs.existsSync(normalizedPath)) {
-            errors.push(`Path does not exist: ${normalizedPath}`);
-            continue;
-          }
-
-          const stat = fs.statSync(normalizedPath);
-          if (stat.isDirectory()) {
-            folders.push(normalizedPath);
-          } else {
-            errors.push(`Not a folder: ${normalizedPath}`);
-          }
-        } catch (error) {
-          errors.push(
-            `Error checking path ${normalizedPath}: ${
-              error instanceof Error ? error.message : String(error)
-            }`
-          );
+      try {
+        if (!fs.existsSync(normalizedPath)) {
+          errors.push(`Path does not exist: ${normalizedPath}`);
+          continue;
         }
-      }
 
-      return {
-        folders,
-        errors,
-      };
+        const stat = fs.statSync(normalizedPath);
+        if (stat.isDirectory()) {
+          folders.push(normalizedPath);
+        } else {
+          errors.push(`Not a folder: ${normalizedPath}`);
+        }
+      } catch (error) {
+        errors.push(
+          `Error checking path ${normalizedPath}: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        );
+      }
     }
-  );
+
+    return {
+      folders,
+      errors,
+    };
+  });
 
   ipcMain.handle<Api>(
     "openMappingDialog",
@@ -630,7 +625,7 @@ export function setupFileHandlers(
           resizable: true,
           title: "Map Files and Add Metadata",
           webPreferences: {
-            preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
+            preload: getPreloadPath(),
             webSecurity: false,
             nodeIntegration: false,
             contextIsolation: true,
@@ -711,9 +706,7 @@ export function setupFileHandlers(
           existingMetadata: payload.existingMetadata,
         };
         const data = encodeURIComponent(JSON.stringify(dialogData));
-        dialogWindow.loadURL(
-          `${MAIN_WINDOW_WEBPACK_ENTRY}#mapping-dialog:${data}`
-        );
+        dialogWindow.loadURL(`${getRendererUrl()}#mapping-dialog:${data}`);
 
         // Show window immediately
         dialogWindow.show();

@@ -1,5 +1,5 @@
 /**
- * This file will automatically be loaded by webpack and run in the "renderer" context.
+ * This file will automatically be loaded by vite and run in the "renderer" context.
  * To learn more about the differences between the "main" and the "renderer" context in
  * Electron, visit:
  *
@@ -10,30 +10,12 @@
  * more about security risks here:
  *
  * https://electronjs.org/docs/tutorial/security
- *
- * To enable Node.js integration in this file, open up `main.js` and enable the `nodeIntegration`
- * flag:
- *
- * ```
- *  // Create the browser window.
- *  mainWindow = new BrowserWindow({
- *    width: 800,
- *    height: 600,
- *    webPreferences: {
- *      nodeIntegration: true
- *    }
- *  });
- * ```
  */
 
 import "../ui/app.tsx";
 import "../ui/fonts-load.css";
 import "../ui/index.css";
 
-// const { ipcRenderer } = require('electron')
-
-// console.log('👋 ', ipcRenderer)
-
 console.log(
-  '👋 This message is being logged by "renderer.js", included via webpack'
+  '👋 This message is being logged by "renderer.ts", included via vite'
 );

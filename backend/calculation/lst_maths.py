@@ -13,8 +13,8 @@ def calcNDMI(B5, B6):
     NDMI = (B5 - B6) / (B5 + B6)
     return NDMI
 
+# 4.3. NDVI Threshold (NDVITHM)-Based LSE Models
 def calcEmissionWithNdviDiapasons(ndvi):
-    # return 1.0094 + 0.047 * numpy.log(ndvi)
     return numpy.where(
         ndvi < -0.185, 
         0.995,
@@ -28,9 +28,11 @@ def calcEmissionWithNdviDiapasons(ndvi):
         )
     )  
 
+# LSE Model of Van de Griend and Owe
 def calcEmissionWithNdviLog(ndvi):
     return 1.0094 + 0.047 * numpy.log(ndvi)  
 
+# LSE Model of Valor and Caselles
 def calcEmissionWithNdmiLog(ndmi):
     # TODO: the values should be dynamic
     e_v = 0.978 

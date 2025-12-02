@@ -1,5 +1,4 @@
 import { ChakraProvider, Spinner, useToast } from "@chakra-ui/react";
-import { darkTheme } from "./theme";
 import { bboxPolygon } from "@turf/turf";
 import { ChevronLeft, Database } from "lucide-react";
 import React, {
@@ -20,6 +19,7 @@ import { useSearchScenesQuery } from "../actions/searchApi";
 import { store, useAppDispatch, useAppSelector } from "./app";
 import { MapContainer } from "./mapbox/mapContainer";
 import { ModalSystemHelper } from "./ModalSystemHelper";
+import { darkTheme } from "./theme";
 
 type LngLat = [number, number];
 
@@ -273,9 +273,9 @@ const SearchSceneDialogWindow: React.FC = () => {
           <div className="bg-gray-800/90 backdrop-blur-sm w-full h-[60px] flex items-center justify-center px-4 text-center border-t border-gray-700">
             {!readySelection ? (
               <div>
-                <p className="text-gray-200">Поставьте 2 точки на карте</p>
+                <p className="text-gray-200">Add 2 points on the map</p>
                 <p className="text-gray-400">
-                  или{" "}
+                  or{" "}
                   <a
                     href="#"
                     className="underline text-blue-400 hover:text-blue-300"
@@ -284,7 +284,7 @@ const SearchSceneDialogWindow: React.FC = () => {
                       handleUseMapBounds();
                     }}
                   >
-                    используйте границы карты
+                    use current map bounds
                   </a>
                 </p>
               </div>
@@ -297,13 +297,13 @@ const SearchSceneDialogWindow: React.FC = () => {
                     setSelectionCoordinates(null);
                   }}
                 >
-                  Изменить область
+                  Reset bounds
                 </button>
                 <button
                   className="bg-blue-600 px-4 py-2 mx-2 rounded border-none text-white font-medium cursor-pointer hover:bg-blue-700 transition-colors"
                   onClick={handleNext}
                 >
-                  Далее
+                  Apply
                 </button>
               </>
             )}

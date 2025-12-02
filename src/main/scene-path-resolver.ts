@@ -169,8 +169,3 @@ export class ScenePathResolver {
 
 // Singleton instance
 export const scenePathResolver = new ScenePathResolver();
-
-
-
-
-

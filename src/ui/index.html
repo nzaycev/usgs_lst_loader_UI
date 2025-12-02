@@ -4,6 +4,13 @@
     <meta charset="UTF-8" />
     
     <!-- <title>Hello World!</title> -->
+    <script>
+      // Polyfill for global variable in renderer process
+      // This must be defined before any modules are loaded
+      if (typeof global === "undefined") {
+        window.global = globalThis;
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

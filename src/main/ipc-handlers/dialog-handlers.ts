@@ -2,11 +2,9 @@ import { BrowserWindow, ipcMain as electronIpcMain } from "electron";
 import { ipcMain } from "electron-typescript-ipc";
 import type { Api } from "../../tools/ElectronApi";
 import { FsWatcher } from "../fs-watcher";
+import { getPreloadPath, getRendererUrl } from "../paths";
 import { SettingsChema, store } from "../settings-store";
 import { usgsApiManager } from "../usgs-api";
-
-declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
-declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
 
 export function setupDialogHandlers(
   mainWindow: BrowserWindow,
@@ -42,7 +40,7 @@ export function setupDialogHandlers(
           title: "USGS Authentication",
           darkTheme: true,
           webPreferences: {
-            preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
+            preload: getPreloadPath(),
             webSecurity: false,
           },
         });
@@ -58,7 +56,7 @@ export function setupDialogHandlers(
         // Передаем данные через hash в URL
         const data = encodeURIComponent(JSON.stringify(dialogData));
         dialogWindow.loadURL(
-          `${MAIN_WINDOW_WEBPACK_ENTRY}#login-dialog:${data}`
+          `${getRendererUrl()}#login-dialog:${data}`
         );
 
         // Show window immediately
@@ -183,14 +181,14 @@ export function setupDialogHandlers(
           title: "Search Scene",
           darkTheme: true,
           webPreferences: {
-            preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
+            preload: getPreloadPath(),
             webSecurity: false,
           },
         });
         dialogWindow.setBackgroundColor("#111827");
 
         dialogWindow.loadURL(
-          `${MAIN_WINDOW_WEBPACK_ENTRY}#search-scene-dialog:${encodeURIComponent(
+          `${getRendererUrl()}#search-scene-dialog:${encodeURIComponent(
             scenesData
           )}`
         );
@@ -276,13 +274,13 @@ export function setupDialogHandlers(
           title: "Network Settings",
           darkTheme: true,
           webPreferences: {
-            preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
+            preload: getPreloadPath(),
             webSecurity: false,
           },
         });
         dialogWindow.setBackgroundColor("#111827");
 
-        dialogWindow.loadURL(`${MAIN_WINDOW_WEBPACK_ENTRY}#settings-dialog:`);
+        dialogWindow.loadURL(`${getRendererUrl()}#settings-dialog:`);
 
         dialogWindow.show();
 
@@ -365,7 +363,7 @@ export function setupDialogHandlers(
           title: "Preparing for calculation",
           darkTheme: true,
           webPreferences: {
-            preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
+            preload: getPreloadPath(),
             webSecurity: false,
           },
         });
@@ -414,7 +412,7 @@ export function setupDialogHandlers(
         };
         const data = encodeURIComponent(JSON.stringify(dialogData));
         dialogWindow.loadURL(
-          `${MAIN_WINDOW_WEBPACK_ENTRY}#calculation-dialog:${data}`
+          `${getRendererUrl()}#calculation-dialog:${data}`
         );
 
         dialogWindow.show();

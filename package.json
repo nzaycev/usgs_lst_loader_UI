@@ -1,29 +1,45 @@
 {
   "name": "usgs-lst-loader",
   "productName": "usgs-lst-loader",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "My Electron application description",
-  "main": ".webpack/main",
+  "main": ".vite/main/index.js",
   "scripts": {
-    "start": "set APP_DEV=true && electron-forge start",
-    "release": "electron-builder",
-    "package": "electron-forge package && npm run copy-env-file",
+    "dev:renderer": "cross-env APP_DEV=true rspack serve --config rspack.renderer.config.js",
+    "dev:main": "cross-env APP_DEV=true rspack build --config rspack.main.config.js --watch",
+    "dev:preload": "cross-env APP_DEV=true rspack build --config rspack.preload.config.js --watch",
+    "start": "concurrently \"npm run dev:renderer\" \"npm run dev:main\" \"npm run dev:preload\" \"wait-on http://localhost:5173 .vite/main/index.js && cross-env APP_DEV=true electron .\"",
     "build-python": "pyinstaller .\\backend\\calculation\\calculation.py --onefile --distpath .\\public\\tasks --add-data .\\pyenv\\Lib\\site-packages\\grapheme\\data\\grapheme_break_property.json;grapheme\\data",
-    "build": "electron-builder build --pd out/usgs-lst-loader-win32-x64",
-    "copy-env-file": "copy \"./.env\" \"out/usgs-lst-loader-win32-x64\"",
-    "make-squirell": "electron-forge make --targets @electron-forge/maker-squirrel",
-    "make-wix": "electron-forge make --targets @electron-forge/maker-wix",
-    "make-nsis": "npm run package && npm run build",
-    "publish": "electron-forge publish",
+    "build:main": "cross-env APP_DEV=false rspack build --config rspack.main.config.js",
+    "build:preload": "cross-env APP_DEV=false rspack build --config rspack.preload.config.js",
+    "build:renderer": "cross-env APP_DEV=false rspack build --config rspack.renderer.config.js",
+    "build": "npm run build:main && npm run build:preload && npm run build:renderer",
+    "make-nsis": "npm run build && electron-builder",
     "lint": "eslint --ext .ts,.tsx ."
   },
   "build": {
     "appId": "test",
+    "productName": "usgs-lst-loader",
+    "asar": true,
+    "files": [
+      ".vite/**/*",
+      "package.json",
+      "!**/*.map",
+      "!**/node_modules/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "./public",
+        "to": "public"
+      }
+    ],
     "win": {
       "target": "nsis",
-      "publish": [
-        "github"
-      ]
+      "publish": {
+        "provider": "github",
+        "owner": "nzaycev",
+        "repo": "ASAP"
+      }
     },
     "nsis": {
       "include": "installer.nsh",
@@ -37,58 +53,9 @@
   "keywords": [],
   "author": "shkid",
   "license": "MIT",
-  "config": {
-    "forge": {
-      "packagerConfig": {
-        "extraResource": "./public"
-      },
-      "makers": [
-        {
-          "name": "@electron-forge/maker-squirrel",
-          "config": {
-            "name": "usgs_lst_loader"
-          }
-        },
-        {
-          "name": "@electron-forge/maker-wix",
-          "config": {
-            "language": 1033,
-            "manufacturer": "My Awesome Company'"
-          }
-        }
-      ],
-      "plugins": [
-        [
-          "@electron-forge/plugin-webpack",
-          {
-            "mainConfig": "./webpack.main.config.js",
-            "devContentSecurityPolicy": "style-src-elem https://api.mapbox.com/ 'unsafe-inline'",
-            "renderer": {
-              "config": "./webpack.renderer.config.js",
-              "entryPoints": [
-                {
-                  "html": "./src/ui/index.html",
-                  "js": "./src/main/renderer.ts",
-                  "name": "main_window",
-                  "preload": {
-                    "js": "./preload.ts"
-                  }
-                }
-              ]
-            }
-          }
-        ]
-      ]
-    }
-  },
   "devDependencies": {
-    "@electron-forge/cli": "6.0.0-beta.63",
-    "@electron-forge/maker-deb": "6.0.0-beta.63",
-    "@electron-forge/maker-rpm": "6.0.0-beta.63",
-    "@electron-forge/maker-squirrel": "6.0.0-beta.63",
-    "@electron-forge/maker-wix": "6.0.0-beta.63",
-    "@electron-forge/maker-zip": "6.0.0-beta.63",
-    "@electron-forge/plugin-webpack": "6.0.0-beta.63",
+    "@rspack/cli": "^1.6.5",
+    "@rspack/core": "^1.6.5",
     "@types/lodash.debounce": "4.0.7",
     "@types/mapbox-gl": "2.7.2",
     "@types/node": "^20.10.6",
@@ -102,22 +69,18 @@
     "@types/redux-logger": "^3.0.9",
     "@typescript-eslint/eslint-plugin": "5.15.0",
     "@typescript-eslint/parser": "5.15.0",
-    "@vercel/webpack-asset-relocator-loader": "1.7.0",
     "autoprefixer": "^10.4.22",
-    "css-loader": "6.7.1",
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
     "electron": "17.1.2",
     "electron-builder": "23.3.3",
-    "electron-packager": "15.5.1",
     "eslint": "8.11.0",
     "eslint-plugin-import": "2.25.4",
-    "fork-ts-checker-webpack-plugin": "6.5.0",
-    "node-loader": "2.0.0",
     "postcss": "^8.5.6",
     "postcss-loader": "^8.2.0",
-    "style-loader": "3.3.1",
     "tailwindcss": "^3.4.18",
-    "ts-loader": "9.2.8",
-    "typescript": "~4.5.4"
+    "typescript": "~4.5.4",
+    "wait-on": "^7.0.1"
   },
   "dependencies": {
     "@babel/runtime": "7.0.0",
@@ -128,6 +91,7 @@
     "@fortawesome/free-solid-svg-icons": "6.1.1",
     "@fortawesome/react-fontawesome": "0.1.18",
     "@reduxjs/toolkit": "1.9.7",
+    "@tailwindcss/postcss": "^4.1.17",
     "@turf/turf": "6.5.0",
     "7zip-bin": "5.2.0",
     "axios": "0.27.2",
