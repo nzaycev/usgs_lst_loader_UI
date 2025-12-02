@@ -1,7 +1,7 @@
 {
   "name": "usgs-lst-loader",
   "productName": "usgs-lst-loader",
-  "version": "2.2.3",
+  "version": "2.2.4",
   "description": "My Electron application description",
   "main": ".vite/main/index.js",
   "scripts": {

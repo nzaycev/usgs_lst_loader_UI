@@ -1,4 +1,4 @@
-import { CloseButton, Link } from "@chakra-ui/react";
+import { Link } from "@chakra-ui/react";
 import { WifiOff } from "lucide-react";
 import React, { ReactNode, useEffect, useState } from "react";
 import { useAppDispatch, useAppSelector } from "../app";
@@ -73,7 +73,7 @@ export const NetworkTestWrapper: React.FC = ({ children }) => {
   return (
     <>
       {children}
-      <div
+      {/* <div
         className={`animate-[slideUp_0.5s] shadow-[0px_10px_10px_10px_rgba(0,0,0,0.63)] p-4 fixed bottom-0 w-full text-center flex flex-col transition-all duration-500 text-white ${
           colorMap[networkState]
         } ${opened ? "translate-y-0" : "translate-y-full"}`}
@@ -83,7 +83,7 @@ export const NetworkTestWrapper: React.FC = ({ children }) => {
           className="absolute right-3"
         />
         {networkState === NetworkState.Unstable && renderError}
-      </div>
+      </div> */}
       <style>{`
         @keyframes slideUp {
           0% {

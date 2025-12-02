@@ -17,6 +17,7 @@ import {
 import { useAppDispatch, useAppSelector } from "./app";
 import { DownloadManagerPage } from "./pages/download-manager-page/download-manager-page";
 import { SystemHelper } from "./SystemHelper";
+import { StatusBar } from "./widgets/status-bar/status-bar";
 
 interface AppRoutes {
   "/auth": void;
@@ -117,10 +118,13 @@ const MainWindowContent = () => {
   return (
     <>
       <SystemHelper />
-      <Routes>
-        <TypedRoute path="/" element={<DownloadManagerPage />} />
-        <TypedRoute path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <Routes>
+          <TypedRoute path="/" element={<DownloadManagerPage />} />
+          <TypedRoute path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </div>
+      <StatusBar activeTab="LST Landsat C2L2" />
     </>
   );
 };
