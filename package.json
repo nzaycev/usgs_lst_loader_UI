@@ -1,7 +1,7 @@
 {
   "name": "usgs-lst-loader",
   "productName": "usgs-lst-loader",
-  "version": "2.2.0",
+  "version": "2.2.3",
   "description": "My Electron application description",
   "main": ".vite/main/index.js",
   "scripts": {
@@ -15,11 +15,13 @@
     "build:renderer": "cross-env APP_DEV=false rspack build --config rspack.renderer.config.js",
     "build": "npm run build:main && npm run build:preload && npm run build:renderer",
     "make-nsis": "npm run build && electron-builder",
+    "release-nsis": "npm run build && electron-builder --publish always",
     "lint": "eslint --ext .ts,.tsx ."
   },
+  "repository": "https://github.com/nzaycev/STAGE",
   "build": {
-    "appId": "test",
-    "productName": "usgs-lst-loader",
+    "appId": "nzaycev.stage",
+    "productName": "Stage",
     "asar": true,
     "files": [
       ".vite/**/*",

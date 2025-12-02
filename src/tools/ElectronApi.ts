@@ -165,6 +165,10 @@ export type RequestApi = {
   validateDroppedPaths: (
     paths: string[]
   ) => Promise<{ folders: string[]; errors: string[] }>;
+  checkForUpdates: () => Promise<{ success: boolean; error?: string }>;
+  downloadUpdate: () => Promise<{ success: boolean; error?: string }>;
+  quitAndInstall: () => Promise<{ success: boolean }>;
+  getAppVersion: () => Promise<string>;
 };
 
 export type ParsedPath = {
@@ -201,6 +205,12 @@ export type HookApi = {
     username?: string;
   }) => Promise<void>;
   networkSettingsChanged: () => Promise<void>;
+  updateChecking: () => Promise<void>;
+  updateAvailable: (info: { version: string; releaseDate: string }) => Promise<void>;
+  updateNotAvailable: (info: { version: string }) => Promise<void>;
+  updateError: (error: string) => Promise<void>;
+  updateDownloadProgress: (progress: { percent: number; transferred: number; total: number }) => Promise<void>;
+  updateDownloaded: (info: { version: string; releaseDate: string }) => Promise<void>;
 };
 
 export type Api = GetApiType<RequestApi, HookApi>;

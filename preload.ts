@@ -219,6 +219,26 @@ const api: Api = {
         paths
       )) as { folders: string[]; errors: string[] };
     },
+    async checkForUpdates() {
+      return (await ipcRenderer.invoke<Api>("checkForUpdates")) as {
+        success: boolean;
+        error?: string;
+      };
+    },
+    async downloadUpdate() {
+      return (await ipcRenderer.invoke<Api>("downloadUpdate")) as {
+        success: boolean;
+        error?: string;
+      };
+    },
+    async quitAndInstall() {
+      return (await ipcRenderer.invoke<Api>("quitAndInstall")) as {
+        success: boolean;
+      };
+    },
+    async getAppVersion() {
+      return (await ipcRenderer.invoke<Api>("getAppVersion")) as string;
+    },
   },
   on: {
     stateChange(listener) {
@@ -277,6 +297,42 @@ const api: Api = {
     networkSettingsChanged(listener) {
       electronIpcRenderer.on("network-settings-changed", (event) => {
         listener(event);
+      });
+      return Promise.resolve();
+    },
+    updateChecking(listener) {
+      electronIpcRenderer.on("update-checking", (event) => {
+        listener(event);
+      });
+      return Promise.resolve();
+    },
+    updateAvailable(listener) {
+      electronIpcRenderer.on("update-available", (event, info) => {
+        listener(event, info);
+      });
+      return Promise.resolve();
+    },
+    updateNotAvailable(listener) {
+      electronIpcRenderer.on("update-not-available", (event, info) => {
+        listener(event, info);
+      });
+      return Promise.resolve();
+    },
+    updateError(listener) {
+      electronIpcRenderer.on("update-error", (event, error) => {
+        listener(event, error);
+      });
+      return Promise.resolve();
+    },
+    updateDownloadProgress(listener) {
+      electronIpcRenderer.on("update-download-progress", (event, progress) => {
+        listener(event, progress);
+      });
+      return Promise.resolve();
+    },
+    updateDownloaded(listener) {
+      electronIpcRenderer.on("update-downloaded", (event, info) => {
+        listener(event, info);
       });
       return Promise.resolve();
     },

@@ -1,5 +1,6 @@
 import dotenv from "dotenv";
 import { app } from "electron";
+import { autoUpdater } from "electron-updater";
 import { setupAppEvents } from "./app-events";
 import { FsWatcher } from "./fs-watcher";
 import { setupCalculationHandlers } from "./ipc-handlers/calculation-handlers";
@@ -9,6 +10,7 @@ import { setupFileHandlers } from "./ipc-handlers/file-handlers";
 import { setupNetworkTestHandlers } from "./ipc-handlers/network-test-handlers";
 import { setupRepoHandlers } from "./ipc-handlers/repo-handlers";
 import { setupSettingsHandlers } from "./ipc-handlers/settings-handlers";
+import { setupUpdateHandlers } from "./ipc-handlers/update-handlers";
 import { setupUsgsApiHandlers } from "./ipc-handlers/usgs-api-handlers";
 import { setupRendererLogging } from "./logging";
 import { createMainWindow } from "./window-creation";
@@ -45,6 +47,20 @@ const createWindow = async () => {
   setupRepoHandlers();
   setupUsgsApiHandlers(mainWindow);
   setupNetworkTestHandlers();
+  setupUpdateHandlers(mainWindow);
+
+  // Проверка обновлений при запуске (только в production)
+  if (!process.env.APP_DEV && app.isReady()) {
+    // Небольшая задержка перед проверкой обновлений
+    setTimeout(() => {
+      autoUpdater.checkForUpdates().catch((error: Error) => {
+        console.error(
+          "[Updater] Error checking for updates on startup:",
+          error
+        );
+      });
+    }, 3000);
+  }
 };
 
 // Setup app event handlers
