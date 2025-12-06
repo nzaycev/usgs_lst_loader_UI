@@ -1,0 +1,328 @@
+# Manifest specification for calculation modules
+# Used for validation of structure and data types
+
+schema:
+  version: "1.0"
+  description: "Manifest validation schema for LST calculation modules"
+
+# @swagger
+components:
+  schemas:
+    AndCondition:
+      additionalProperties: false
+      properties:
+        and:
+          items:
+            $ref: "#/components/schemas/AnyCondition"
+          type: array
+      required:
+        - and
+      type: object
+    AnyCondition:
+      anyOf:
+        - $ref: "#/components/schemas/AndCondition"
+        - $ref: "#/components/schemas/OrCondition"
+        - $ref: "#/components/schemas/NotCondition"
+        - $ref: "#/components/schemas/EqualCondition"
+        - $ref: "#/components/schemas/SimpleTrueCondition"
+    EqualCondition:
+      additionalProperties: false
+      properties:
+        equal:
+          type: string
+        value:
+          type: string
+      required:
+        - equal
+        - value
+      type: object
+    Manifest:
+      additionalProperties: false
+      properties:
+        module:
+          $ref: "#/components/schemas/ManifestModule"
+      required:
+        - module
+      type: object
+    ManifestArgument:
+      anyOf:
+        - $ref: "#/components/schemas/ManifestEnumArgument"
+        - $ref: "#/components/schemas/ManifestBooleanArgument"
+        - $ref: "#/components/schemas/ManifestNumberArgument"
+        - $ref: "#/components/schemas/ManifestStringArgument"
+    ManifestBooleanArgument:
+      additionalProperties: false
+      properties:
+        default:
+          type: boolean
+        description:
+          type: string
+        name:
+          type: string
+        required:
+          type: boolean
+        type:
+          const: boolean
+          type: string
+      required:
+        - description
+        - name
+        - type
+      type: object
+    ManifestCollection:
+      additionalProperties: false
+      properties:
+        datasetId:
+          type: string
+        filters:
+          additionalProperties:
+            type: string
+          type: object
+        id:
+          type: string
+      required:
+        - id
+        - datasetId
+        - filters
+      type: object
+    ManifestDataset:
+      additionalProperties: false
+      properties:
+        datasetName:
+          type: string
+        id:
+          type: string
+      required:
+        - id
+        - datasetName
+      type: object
+    ManifestEnumArgument:
+      additionalProperties: false
+      properties:
+        default:
+          type: string
+        description:
+          type: string
+        name:
+          type: string
+        options:
+          items:
+            type: string
+          type: array
+        required:
+          type: boolean
+        type:
+          const: enum
+          type: string
+      required:
+        - description
+        - name
+        - options
+        - type
+      type: object
+    ManifestInputLayer:
+      additionalProperties: false
+      properties:
+        collectionId:
+          type: string
+        conditions:
+          $ref: "#/components/schemas/AnyCondition"
+        description:
+          type: string
+        id:
+          type: string
+        label:
+          type: string
+        scale:
+          type: number
+      required:
+        - id
+        - label
+        - description
+        - collectionId
+      type: object
+    ManifestModule:
+      additionalProperties: false
+      properties:
+        arguments:
+          items:
+            $ref: "#/components/schemas/ManifestArgument"
+          type: array
+        collections:
+          items:
+            $ref: "#/components/schemas/ManifestCollection"
+          type: array
+        datasets:
+          items:
+            $ref: "#/components/schemas/ManifestDataset"
+          type: array
+        id:
+          type: string
+        inputLayers:
+          items:
+            $ref: "#/components/schemas/ManifestInputLayer"
+          type: array
+        outputLayers:
+          items:
+            $ref: "#/components/schemas/ManifestOutputLayer"
+          type: array
+        title:
+          type: string
+      required:
+        - title
+        - datasets
+        - collections
+        - inputLayers
+        - outputLayers
+      type: object
+    ManifestNumberArgument:
+      additionalProperties: false
+      properties:
+        default:
+          type: number
+        description:
+          type: string
+        name:
+          type: string
+        required:
+          type: boolean
+        type:
+          const: number
+          type: string
+      required:
+        - description
+        - name
+        - type
+      type: object
+    ManifestOutputLayer:
+      additionalProperties: false
+      properties:
+        description:
+          type: string
+        id:
+          type: string
+        label:
+          type: string
+        required:
+          type: boolean
+      required:
+        - id
+        - label
+        - required
+        - description
+      type: object
+    ManifestStringArgument:
+      additionalProperties: false
+      properties:
+        default:
+          type: string
+        description:
+          type: string
+        name:
+          type: string
+        required:
+          type: boolean
+        type:
+          const: string
+          type: string
+      required:
+        - description
+        - name
+        - type
+      type: object
+    NotCondition:
+      additionalProperties: false
+      properties:
+        not:
+          $ref: "#/components/schemas/AnyCondition"
+      required:
+        - not
+      type: object
+    OrCondition:
+      additionalProperties: false
+      properties:
+        or:
+          items:
+            $ref: "#/components/schemas/AnyCondition"
+          type: array
+      required:
+        - or
+      type: object
+    SimpleTrueCondition:
+      type: string
+
+# Validation rules
+validation_rules:
+  # OpenAPI schema validation errors (all structural errors from jsonschema)
+  - name: "schema_validation_error"
+    description: "OpenAPI schema validation error"
+    error_template: "{message}"
+    level: error
+
+  # Conditions validation rules (custom business logic)
+  - name: "empty_conditions_list"
+    description: "Empty conditions list"
+    warning: "Empty conditions list"
+    level: warning
+
+  - name: "empty_or_list"
+    description: "Empty 'or' list"
+    warning: "Empty 'or' list - condition will always be false"
+    level: warning
+
+  - name: "redundant_or_warning"
+    description: "Warning about redundant 'or' with single element"
+    warning: "'or' list with single element - consider removing 'or' wrapper"
+    level: warning
+
+  - name: "empty_and_list"
+    description: "Empty 'and' list"
+    warning: "Empty 'and' list - condition will always be true"
+    level: warning
+
+  - name: "redundant_and_warning"
+    description: "Warning about redundant 'and' with single element"
+    warning: "'and' list with single element - consider removing 'and' wrapper"
+    level: warning
+
+  - name: "reference_must_exist"
+    description: "Reference must point to an existing entity"
+    error_template: "Referenced {reference_type} '{name}' not found in {section}"
+    level: error
+
+  - name: "unknown_reference_format"
+    description: "Unknown reference format"
+    warning: "Unknown reference format: '{ref}'. Expected 'args.*', 'inputs.*', or 'outputs.*'"
+    level: warning
+
+  - name: "invalid_reference_format"
+    description: "Invalid reference format (typo)"
+    error: "Invalid reference format: '{ref}'. Did you mean 'args.{name}'?"
+    level: error
+
+  # Reference validation rules
+  - name: "dataset_not_found"
+    description: "Referenced dataset not found"
+    error_template: "Referenced dataset '{dataset_id}' not found in datasets"
+    level: error
+
+  - name: "collection_not_found"
+    description: "Referenced collection not found"
+    error_template: "Referenced collection '{collection_id}' not found in collections"
+    level: error
+
+  # Unused resources
+  - name: "unused_dataset"
+    description: "Dataset is defined but never used"
+    warning_template: "Dataset '{dataset_id}' is defined but never used in any collection"
+    level: warning
+
+  - name: "unused_collection"
+    description: "Collection is defined but never used"
+    warning_template: "Collection '{collection_id}' is defined but never used in any input layer"
+    level: warning
+
+  - name: "no_duplicated_object_field"
+    description: "Duplicate field value in object array"
+    error_template: "Duplicate {field_name} '{value}' in {section}"
+    level: error

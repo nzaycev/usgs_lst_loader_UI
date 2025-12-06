@@ -1,0 +1,58 @@
+correctConditions:
+  test1:
+    or:
+      - args.arg1
+      - args.arg2
+  test2:
+    or:
+      # checks if layer1 provided
+      - inputs.layer1
+      # checks if layer2 should be generated
+      - outputs.layer2
+
+  test3:
+    # correct, but warning because of using redundant or
+    or:
+      - args.arg1
+  test4:
+    not: args.arg1
+  test5: arg.arg1
+
+  test7:
+    and:
+      - not: arg.arg1
+      - or:
+          - equal: arg.arg2
+            value: true
+          - not:
+              equal: arg.arg3
+              value: "test"
+
+incorrect:
+  # unexistedArg
+  test1:
+    not: args.unexistedArg
+  # unexistedInput
+  test2:
+    not: inputs.unexistedInput
+  # unexistedOutput
+  test3:
+    not: outputs.unexistedOutput
+  # incorrect because of using top-level array with no modfier
+  test4:
+    - arg1.arg2
+  # incorrect because of using top-level array with no modfier
+  test5:
+    - arg.arg1
+    - arg.arg2
+  # incorrect because of using top-level array with no modfier
+  test6:
+    - or:
+        - args.arg1
+        - args.arg2
+  # incorrect because of non-array value
+  test7:
+    or: args.arg1
+  # no required `value` field
+  test8:
+    equal: arg.arg2

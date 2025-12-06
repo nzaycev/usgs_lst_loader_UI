@@ -74,7 +74,7 @@
     "autoprefixer": "^10.4.22",
     "concurrently": "^8.2.2",
     "cross-env": "^7.0.3",
-    "electron": "17.1.2",
+    "electron": "^39.2.4",
     "electron-builder": "23.3.3",
     "eslint": "8.11.0",
     "eslint-plugin-import": "2.25.4",

@@ -1,0 +1,142 @@
+module:
+  id: some_uid
+  title: LST MWA with emission
+
+  arguments:
+    - name: emissionCalcMethod
+      description: lorem ipsum
+      type: enum
+      required: true
+      # to be selected on UI
+      default: ndmi
+      options:
+        - ndmi
+        - vegProp
+        - log
+        - logDiapasons
+    - name: useQAMask
+      type: boolean
+      description: whether QA mask need to be used
+
+  datasets:
+    - id: mainDataset
+      datasetName: landsat_ot_c2_l2
+
+  collections:
+    - id: mainCollection
+      datasetId: mainDataset
+      filters:
+        collectionId: T1
+        productId: SP
+
+  inputLayers:
+    - id: ST_TRAD
+      label: ST_TRAD
+      description: |
+        Surface temperature thermal radiance
+      collectionId: mainCollection
+      scale: 0.001
+    - id: ST_DRAD
+      label: ST_DRAD
+      description: |
+        Downwelling thermal radiance
+      collectionId: mainCollection
+      scale: 0.001
+    - id: ST_URAD
+      label: ST_URAD
+      description: |
+        Upwelling thermal radiance
+      collectionId: mainCollection
+      scale: 0.001
+    - id: ST_ATRAN
+      label: ST_ATRAN
+      description: |
+        Atmospheric transmittance
+      collectionId: mainCollection
+      scale: 0.0001
+    - id: SR_B4
+      label: SR_B4
+      conditions:
+        or:
+          - outputs.NDMI
+          - not:
+              equal: args.emissionCalcMethod
+              value: ndmi
+      description: |
+        Surface reflectance band 4 (Red)
+      collectionId: mainCollection
+      scale: 1
+    - id: SR_B5
+      label: SR_B5
+      conditions:
+        or:
+          - outputs.NDMI
+          - not:
+              equal: args.emissionCalcMethod
+              value: ndmi
+      description: |
+        Surface reflectance band 5 (NIR)
+      collectionId: mainCollection
+      scale: 1
+    - id: SR_B6
+      label: SR_B6
+      # oprional reading optimization
+      conditions:
+        or:
+          - outputs.NDMI
+          - equal: args.emissionCalcMethod
+            value: ndmi
+      description: |
+        Surface reflectance band 6 (SWIR1)
+      collectionId: mainCollection
+      scale: 1
+    - id: QA_PIXEL
+      label: QA_PIXEL
+      description: |
+        Quality assessment pixel band
+      # to detect max progress value
+      conditions: args.useQAMask
+      collectionId: mainCollection
+      scale: 1
+
+  outputLayers:
+    - id: LST
+      label: LST
+      required: true
+      description: |
+        Land Surface Temperature in Celsius
+    - id: BT
+      label: BT
+      required: false
+      description: |
+        Brightness Temperature in Kelvin
+    - id: Emission
+      label: Emission
+      required: false
+      description: |
+        Land Surface Emissivity
+    - id: NDVI
+      label: NDVI
+      required: false
+      description: |
+        Normalized Difference Vegetation Index
+    - id: NDMI
+      label: NDMI
+      required: false
+      description: |
+        Normalized Difference Moisture Index
+    - id: Radiance
+      label: Radiance
+      required: false
+      description: |
+        Thermal radiance
+    - id: SurfRad
+      label: SurfRad
+      required: false
+      description: |
+        Surface radiance
+    - id: VegProp
+      label: VegProp
+      required: false
+      description: |
+        Vegetation proportion
